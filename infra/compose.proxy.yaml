@@ -1,0 +1,118 @@
+# TLS reverse proxy so a client on ANOTHER LAN device reaches the gateway over HTTPS.
+#
+# Why this exists: ACME/Let's Encrypt cannot issue certificates for a private/LAN
+# address (192.168.x.x) or "localhost". Caddy's automatic HTTPS fails for exactly that
+# reason on a LAN IP. A LAN deployment must terminate TLS itself with a self-signed or
+# private-CA certificate that the client trusts. See integrations/nginx/README.md.
+#
+# Run WITH the base file so relative bind mounts resolve from the repo root:
+#   docker compose -f compose.yaml -f infra/compose.proxy.yaml up -d --wait gateway proxy
+#
+# The proxy is the ONLY service published to the network. The gateway stays internal and
+# is reached by service DNS on the speech network, so it never needs a host port and the
+# Windows 8080 TCP excluded-port-range conflict disappears.
+
+services:
+  gateway:
+    # Remove the host-published port entirely (Compose !reset, needs Compose v2.24+).
+    # Clients reach the gateway only through `proxy`; loopback/LAN host binding and the
+    # reserved 8080 range are no longer startup dependencies. Local smoke then runs in the
+    # dedicated client image (the gateway image carries no `openai` client), e.g.
+    #   docker compose -f compose.yaml -f infra/compose.proxy.yaml --profile smoke \
+    #     run --rm --no-deps smoke
+    # or from the host through the TLS proxy with the proxy PEM:
+    #   python scripts/smoke.py --base-url https://127.0.0.1:8443/v1 --ca-bundle certs/voxi.crt
+    ports: !reset []
+
+  webui:
+    # Dedicated FRONTEND container: builds the SPA (node stage) and serves it via
+    # nginx. Own row + Logs tab in Docker Desktop; `docker compose logs webui`
+    # shows every /ui request and any static 404. Internal only — no published
+    # port; the TLS `proxy` edge forwards /ui to it on the speech network.
+    image: voxi-webui:local
+    build:
+      context: .
+      dockerfile: webui/Dockerfile
+    init: true
+    restart: unless-stopped
+    networks: [speech]
+    volumes:
+      # All served model assets (punctuation ONNX + studio model packs).
+      # Optional: a missing dir just means the WebUI shows a clear
+      # "model missing" error instead of ever reaching for Hugging Face.
+      - ./models:/usr/share/nginx/html/models:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/ui/"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  proxy:
+    # TLS edge + identity ONLY. Terminates TLS, enforces the loopback keyless
+    # guards, proxies /v1 to the gateway and /ui to the `webui` container. The SPA
+    # and its logs now live in `webui`, not here — so this stays the stock nginx
+    # image with the reviewed template + guard entrypoint mounted read-only.
+    image: nginx:1.27-alpine
+    init: true
+    restart: unless-stopped
+    # Entrypoint renders nginx.conf.template -> conf.d/default.conf (0600) and
+    # refuses to start if keyless injection is paired with a non-loopback bind,
+    # or if TLS material is absent. Replaces the stock entrypoint (we exec nginx).
+    entrypoint: ["/bin/sh", "/etc/nginx/voxi-entrypoint.sh"]
+    depends_on:
+      gateway:
+        condition: service_healthy
+      webui:
+        condition: service_healthy
+      secrets:
+        condition: service_completed_successfully
+    networks: [speech]
+    environment:
+      # Keyless local identity: when true the proxy injects VOXI_WEBUI_KEY for /v1
+      # and enforces the loopback Host + cross-site guards. The entrypoint hard-fails
+      # if this is true while VOXI_PROXY_BIND_IP is not loopback.
+      VOXI_PROXY_INJECT: ${VOXI_PROXY_INJECT:-true}
+      VOXI_PROXY_BIND_IP: ${VOXI_PROXY_BIND_IP:-127.0.0.1}
+      # Separate, revocable local-only key (NOT the master VOXI_API_KEY). An explicit
+      # value here wins; otherwise the entrypoint reads the generated file from the
+      # secrets volume (written by the one-shot `secrets` service), and only that
+      # registered "webui-local" record makes the injection valid.
+      VOXI_WEBUI_KEY: ${VOXI_WEBUI_KEY:-}
+      VOXI_SECRETS_DIR: /run/voxi-secrets
+      # When 1, a certificate this project generated itself is refused.
+      REQUIRE_PROVIDED_CERTS: ${REQUIRE_PROVIDED_CERTS:-}
+    ports:
+      # Loopback by default => keyless local identity is sound (same-host only). To
+      # reach the console from another LAN device, set VOXI_PROXY_BIND_IP to a LAN
+      # address AND VOXI_PROXY_INJECT=false; the entrypoint refuses any other combo.
+      # Never forward this port to WAN. TLS is enforced in both modes.
+      - "${VOXI_PROXY_BIND_IP:-127.0.0.1}:${VOXI_PROXY_PORT:-8443}:8443"
+    volumes:
+      # Rendered config lives inside the container (may embed a bearer); mount only
+      # the read-only template + entrypoint, never conf.d itself.
+      - ./integrations/nginx/nginx.conf.template:/etc/nginx/voxi-nginx.conf.template:ro
+      - ./integrations/nginx/voxi-entrypoint.sh:/etc/nginx/voxi-entrypoint.sh:ro
+      # TLS certs — provided by the operator, or generated once by the `secrets`
+      # service on a fresh clone; never baked into an image.
+      - ./certs:/etc/nginx/tls:ro
+      # Read-only fallback source for the local WebUI key (never the master key).
+      - secrets:/run/voxi-secrets:ro
+    healthcheck:
+      # busybox wget in the alpine image; --no-check-certificate because the cert is
+      # self-signed. Probes through to the gateway /healthz over the proxied TLS route.
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--no-check-certificate", "--spider", "https://127.0.0.1:8443/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

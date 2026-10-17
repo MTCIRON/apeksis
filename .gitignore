@@ -1,0 +1,44 @@
+.env
+.env.*
+!.env.example
+.venv/
+.venv-export/
+__pycache__/
+*.pyc
+.pytest_cache/
+.test-tmp/
+.ruff_cache/
+.mypy_cache/
+models/
+*.egg-info/
+smoke-output/
+
+# Local TLS material for the nginx reverse proxy (infra/compose.proxy.yaml).
+certs/
+# Older copy of the same material kept on disk; must never be published either.
+certs.saved/
+
+# Throwaway clone kept only as a theme/design reference, never shipped code.
+_scratch_reference/
+
+# Local reference material for the merged UI (the upstream kit the design language was
+# ported from, plus a third-party design reference). 563 MB / ~3900 files, never shipped:
+# the merged source lives in webui/src. Keeping it here would bloat the repo and the build.
+example-projects/
+
+# Internal process notes that must not ship (PRD, build prompts, stage records).
+docs/internal/
+
+# Stray artifacts left by manual testing.
+nginxlog.txt
+tts16.json
+
+# Local pytest temp base (used to avoid Windows sandbox temp-permission errors).
+.pytest-tmp/
+
+# Voxi WebUI build artifacts (rebuild with `npm --prefix webui run build`).
+webui/node_modules/
+webui/dist/
+# Local Vite dev config (the image build passes the base explicitly; the app
+# defaults to /models anyway).
+webui/.env

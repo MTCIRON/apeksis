@@ -1,0 +1,7 @@
+# Provision/build online first. Recreate containers using this override to deny
+# bridge-network external routing. Use smoke-profile client inside this network:
+# Docker Desktop may refuse host access to published ports on internal networks.
+# Existing external n8n becomes inaccessible; core speech has no n8n dependency.
+networks:
+  speech:
+    internal: true

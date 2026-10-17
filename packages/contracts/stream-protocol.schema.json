@@ -1,0 +1,882 @@
+{
+  "title": "Voxi WebSocket frame contracts (ADR 0005)",
+  "description": "Text frames are UTF-8 JSON validated by these strict extra-forbid models on both directions. Voxi-defined protocols only: no OpenAI Realtime or upstream native contract is emulated. Bearer scopes are enforced at handshake.",
+  "routes": {
+    "/v1/sessions/{session_id}/stream": {
+      "scope": "realtime:connect",
+      "inbound": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "barge_in",
+              "hangup",
+              "ping",
+              "turn"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "transcript": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Transcript"
+          },
+          "language": {
+            "default": "tr-TR",
+            "title": "Language",
+            "type": "string"
+          },
+          "context": {
+            "additionalProperties": true,
+            "title": "Context",
+            "type": "object"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "StreamInboundEvent",
+        "type": "object"
+      },
+      "inbound_audio": {
+        "description": "Binary frame: 4-byte big-endian header (uint16 generation_id, uint16 sequence) followed by PCM16 signed little-endian mono samples at the negotiated sample_rate."
+      },
+      "outbound": {
+        "$defs": {
+          "TurnAction": {
+            "additionalProperties": false,
+            "properties": {
+              "schema_version": {
+                "const": "1.0",
+                "title": "Schema Version",
+                "type": "string"
+              },
+              "action": {
+                "enum": [
+                  "speak",
+                  "transfer",
+                  "hangup",
+                  "listen",
+                  "fallback"
+                ],
+                "title": "Action",
+                "type": "string"
+              },
+              "text": {
+                "anyOf": [
+                  {
+                    "maxLength": 5000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Text"
+              },
+              "language": {
+                "default": "tr-TR",
+                "title": "Language",
+                "type": "string"
+              },
+              "voice": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Voice"
+              },
+              "transfer_target": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Transfer Target"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "title": "Metadata",
+                "type": "object"
+              },
+              "idempotency_key": {
+                "maxLength": 200,
+                "minLength": 1,
+                "title": "Idempotency Key",
+                "type": "string"
+              }
+            },
+            "required": [
+              "schema_version",
+              "action",
+              "idempotency_key"
+            ],
+            "title": "TurnAction",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Server frames on the session stream (ADR 0005).",
+        "properties": {
+          "type": {
+            "enum": [
+              "clear",
+              "action",
+              "state",
+              "pong",
+              "error",
+              "transcript",
+              "speech_started",
+              "speech_ended"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "generation_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Generation Id"
+          },
+          "action": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/TurnAction"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          },
+          "utterance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Utterance Id"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Ms"
+          },
+          "rejected_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rejected Ms"
+          },
+          "truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Truncated"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "StreamOutboundEvent",
+        "type": "object"
+      },
+      "outbound_audio": {
+        "description": "Binary frame: 4-byte big-endian header (uint16 generation_id, uint16 sequence) followed by PCM16 signed little-endian mono samples at the negotiated sample_rate."
+      }
+    },
+    "/v1/tts/stream": {
+      "scope": "audio:write",
+      "inbound": {
+        "$defs": {
+          "TtsStreamControl": {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "cancel",
+                  "ping"
+                ],
+                "title": "Type",
+                "type": "string"
+              },
+              "generation_id": {
+                "anyOf": [
+                  {
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Generation Id"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "title": "TtsStreamControl",
+            "type": "object"
+          },
+          "TtsStreamRequest": {
+            "additionalProperties": false,
+            "description": "Opening frame of WS /v1/tts/stream (TTS-05, platform-specific protocol).",
+            "properties": {
+              "type": {
+                "const": "speak",
+                "default": "speak",
+                "title": "Type",
+                "type": "string"
+              },
+              "model": {
+                "default": "ema-lightning",
+                "title": "Model",
+                "type": "string"
+              },
+              "input": {
+                "maxLength": 5000,
+                "minLength": 1,
+                "title": "Input",
+                "type": "string"
+              },
+              "voice": {
+                "default": "ema-tr",
+                "title": "Voice",
+                "type": "string"
+              },
+              "sample_rate": {
+                "default": 16000,
+                "enum": [
+                  8000,
+                  16000,
+                  24000,
+                  48000
+                ],
+                "title": "Sample Rate",
+                "type": "integer"
+              },
+              "speed": {
+                "default": 1,
+                "maximum": 4,
+                "minimum": 0.25,
+                "title": "Speed",
+                "type": "number"
+              },
+              "seed": {
+                "anyOf": [
+                  {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Seed"
+              },
+              "generation_id": {
+                "default": 0,
+                "maximum": 65535,
+                "minimum": 0,
+                "title": "Generation Id",
+                "type": "integer"
+              },
+              "chunk_ms": {
+                "default": 100,
+                "enum": [
+                  20,
+                  40,
+                  60,
+                  100,
+                  120,
+                  200
+                ],
+                "title": "Chunk Ms",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "input"
+            ],
+            "title": "TtsStreamRequest",
+            "type": "object"
+          }
+        },
+        "discriminator": {
+          "mapping": {
+            "cancel": "#/$defs/TtsStreamControl",
+            "ping": "#/$defs/TtsStreamControl",
+            "speak": "#/$defs/TtsStreamRequest"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/TtsStreamRequest"
+          },
+          {
+            "$ref": "#/$defs/TtsStreamControl"
+          }
+        ]
+      },
+      "outbound": {
+        "additionalProperties": false,
+        "description": "Server frames on WS /v1/tts/stream; audio travels as framed binary.",
+        "properties": {
+          "type": {
+            "enum": [
+              "meta",
+              "done",
+              "cancelled",
+              "error",
+              "pong"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "generation_id": {
+            "anyOf": [
+              {
+                "maximum": 65535,
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Generation Id"
+          },
+          "sample_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sample Rate"
+          },
+          "channels": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Channels"
+          },
+          "encoding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Encoding"
+          },
+          "chunk_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Chunk Ms"
+          },
+          "chunks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Chunks"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Ms"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "TtsStreamOutboundEvent",
+        "type": "object"
+      },
+      "outbound_audio": {
+        "description": "Binary frame: 4-byte big-endian header (uint16 generation_id, uint16 sequence) followed by PCM16 signed little-endian mono samples at the negotiated sample_rate."
+      }
+    },
+    "/v1/realtime/transcriptions": {
+      "scope": "audio:write",
+      "inbound": {
+        "$defs": {
+          "RealtimeTranscriptionControl": {
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "flush",
+                  "session.stop",
+                  "ping"
+                ],
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "title": "RealtimeTranscriptionControl",
+            "type": "object"
+          },
+          "RealtimeTranscriptionStart": {
+            "additionalProperties": false,
+            "description": "Opening frame of WS /v1/realtime/transcriptions (STT-07 custom protocol).",
+            "properties": {
+              "type": {
+                "const": "session.start",
+                "default": "session.start",
+                "title": "Type",
+                "type": "string"
+              },
+              "model": {
+                "default": "whisper-1",
+                "title": "Model",
+                "type": "string"
+              },
+              "language": {
+                "default": "tr",
+                "pattern": "^[a-z]{2,3}$",
+                "title": "Language",
+                "type": "string"
+              },
+              "prompt": {
+                "anyOf": [
+                  {
+                    "maxLength": 2000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Prompt"
+              },
+              "sample_rate": {
+                "default": 16000,
+                "enum": [
+                  8000,
+                  16000
+                ],
+                "title": "Sample Rate",
+                "type": "integer"
+              },
+              "start_ms": {
+                "default": 100,
+                "maximum": 1000,
+                "minimum": 20,
+                "title": "Start Ms",
+                "type": "integer"
+              },
+              "end_ms": {
+                "default": 700,
+                "maximum": 5000,
+                "minimum": 100,
+                "title": "End Ms",
+                "type": "integer"
+              },
+              "min_speech_ms": {
+                "default": 200,
+                "maximum": 2000,
+                "minimum": 20,
+                "title": "Min Speech Ms",
+                "type": "integer"
+              },
+              "partial_interval_ms": {
+                "default": 1200,
+                "maximum": 10000,
+                "minimum": 300,
+                "title": "Partial Interval Ms",
+                "type": "integer"
+              },
+              "max_utterance_ms": {
+                "default": 30000,
+                "maximum": 120000,
+                "minimum": 1000,
+                "title": "Max Utterance Ms",
+                "type": "integer"
+              }
+            },
+            "title": "RealtimeTranscriptionStart",
+            "type": "object"
+          }
+        },
+        "discriminator": {
+          "mapping": {
+            "flush": "#/$defs/RealtimeTranscriptionControl",
+            "ping": "#/$defs/RealtimeTranscriptionControl",
+            "session.start": "#/$defs/RealtimeTranscriptionStart",
+            "session.stop": "#/$defs/RealtimeTranscriptionControl"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/RealtimeTranscriptionStart"
+          },
+          {
+            "$ref": "#/$defs/RealtimeTranscriptionControl"
+          }
+        ]
+      },
+      "inbound_audio": {
+        "description": "Raw PCM16 signed little-endian mono at the session.start sample_rate; no container header, no frame header."
+      },
+      "outbound": {
+        "additionalProperties": false,
+        "description": "Server frames for WS /v1/realtime/transcriptions.",
+        "properties": {
+          "type": {
+            "enum": [
+              "session.started",
+              "speech.started",
+              "transcript.partial",
+              "transcript.final",
+              "speech.ended",
+              "error",
+              "session.ended",
+              "pong"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Id"
+          },
+          "utterance_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Utterance Id"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revision"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mode"
+          },
+          "sample_rate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sample Rate"
+          },
+          "started_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Started Ms"
+          },
+          "ended_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ended Ms"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Duration Ms"
+          },
+          "rejected_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rejected Ms"
+          },
+          "truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Truncated"
+          },
+          "vad": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vad"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Code"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "TranscriptionOutboundEvent",
+        "type": "object"
+      }
+    }
+  }
+}

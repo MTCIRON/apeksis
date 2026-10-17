@@ -1,0 +1,47 @@
+{
+  "name": "Voxi authenticated Turkish file TTS",
+  "active": false,
+  "nodes": [
+    {
+      "id": "e6bfe251-19f4-4d62-9dd9-cd4b9dbd9cf2",
+      "name": "Text request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "de2111ef-dc7e-49fb-ae50-825ae1fd00d4",
+      "parameters": {"httpMethod": "POST", "path": "voxi-file-tts", "authentication": "headerAuth", "responseMode": "responseNode", "options": {}}
+    },
+    {
+      "id": "df083438-1c68-43fe-a201-e6d8db9e467d",
+      "name": "Voxi speech WAV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://gateway:8080/v1/audio/speech",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {model: 'ema-lightning', voice: 'ema-tr', input: $json.body.text, response_format: 'wav', sample_rate: 24000} }}",
+        "options": {"timeout": 180000, "response": {"response": {"responseFormat": "file", "outputPropertyName": "audio"}}}
+      }
+    },
+    {
+      "id": "79b2b915-502b-4c0c-82cc-8825430bf456",
+      "name": "Return WAV",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [740, 300],
+      "parameters": {"respondWith": "binary", "responseDataSource": "set", "inputFieldName": "audio", "options": {"responseHeaders": {"entries": [{"name": "Content-Type", "value": "audio/wav"}]}}}
+    }
+  ],
+  "connections": {
+    "Text request": {"main": [[{"node": "Voxi speech WAV", "type": "main", "index": 0}]]},
+    "Voxi speech WAV": {"main": [[{"node": "Return WAV", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "none"},
+  "pinData": {},
+  "tags": []
+}

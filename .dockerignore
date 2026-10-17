@@ -1,0 +1,38 @@
+.git
+.github
+.env
+.env.*
+!.env.example
+.venv*
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.pytest-tmp
+.test-tmp
+models
+smoke-output
+*.wav
+*.mp3
+*.safetensors
+*.pt
+*.onnx
+*.bin
+build
+dist
+*.egg-info
+# Frontend build inputs: never copy host node_modules, a baked dist or a local
+# .env into any layer. Plain `dist`/`.env` match the repo root only, so the
+# `**/` forms are required to also cover `webui/` (COPY webui/ in webui/Dockerfile).
+**/node_modules
+**/dist
+**/.env
+# TLS material is a deployment secret - must never enter any image build context.
+certs
+certs.saved
+# Local reference material (~563 MB): irrelevant to every image, would bloat every build context.
+example-projects
+_scratch_reference
+# Internal process notes; never needed to build any image.
+docs/internal

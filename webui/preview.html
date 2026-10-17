@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Apeksis · Ön Yüz (HTML/CSS önizleme)</title>
+<style>
+  :root{
+    --bg:#14171a; --pane:#1a1e23; --pane2:#22272e; --raised:#282f37; --raisedH:#323a44;
+    --line:#2e353e; --line-soft:#232830; --fg:#e6ebf0; --fg2:#98a2ad; --fg3:#65707b;
+    --cini:#476de6; --ciniPress:#395cd4; --firuze:#36c2b4; --mercan:#ef644e; --r:7px;
+    font-size:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--fg);line-height:1.5;
+    font-family:Inter,ui-sans-serif,system-ui,"Segoe UI",Roboto,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--cini)}
+  /* layout */
+  .app{display:flex;flex-direction:column;min-height:100%}
+  .topbar{border-bottom:1px solid var(--line);background:var(--pane);padding:12px 20px}
+  .topbar .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:baseline;gap:8px}
+  .brand b{font-size:18px;font-weight:700;letter-spacing:-.02em}
+  .brand span{font-size:12px;color:var(--fg3)}
+  .topright{display:flex;align-items:center;gap:12px}
+  .savechip{font-size:12px;color:var(--firuze)}
+  .note{font-size:12px;color:var(--fg3)}
+  .strip{display:none;gap:4px;overflow-x:auto;margin-top:12px}
+  .wrap{margin:0 auto;display:flex;width:100%;max-width:1152px;gap:20px;padding:20px;flex:1}
+  .side{display:none;width:208px;flex-shrink:0}
+  .sidenav{position:sticky;top:20px;display:flex;flex-direction:column;gap:16px}
+  .grp-title{padding:0 8px 4px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3)}
+  .grp-adv{padding:8px 8px 4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--fg3);opacity:.7}
+  .nav-item{display:block;width:100%;text-align:left;border:0;background:none;color:var(--fg2);
+    padding:6px 12px;border-radius:var(--r);font-size:14px;cursor:pointer;transition:.15s}
+  .nav-item:hover{background:var(--raised);color:var(--fg)}
+  .nav-item.active{background:var(--cini);color:#fff}
+  .main{min-width:0;flex:1;display:flex;flex-direction:column;gap:16px}
+  footer{border-top:1px solid var(--line);padding:8px 20px;font-size:12px;color:var(--fg3)}
+  @media(min-width:768px){.side{display:block}.strip{display:none!important}}
+  @media(max-width:767px){.strip{display:flex}}
+  /* page switching */
+  .page{display:none;flex-direction:column;gap:16px}
+  .page.active{display:flex}
+  /* card */
+  .card{border:1px solid var(--line);background:var(--pane);border-radius:var(--r)}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    border-bottom:1px solid var(--line-soft);padding:12px 16px}
+  .card-title{font-size:14px;font-weight:600;letter-spacing:.02em;margin:0}
+  .card-actions{display:flex;align-items:center;gap:8px}
+  .card-body{padding:16px}
+  .card-body>*+*{margin-top:16px}
+  /* badge */
+  .badge{display:inline-flex;align-items:center;gap:4px;border-radius:3px;border:1px solid;padding:2px 8px;
+    font-size:12px;font-weight:500}
+  .b-ok{color:var(--firuze);background:rgba(54,194,180,.15);border-color:rgba(54,194,180,.3)}
+  .b-warn{color:var(--mercan);background:rgba(239,100,78,.15);border-color:rgba(239,100,78,.3)}
+  .b-bad{color:var(--mercan);background:rgba(239,100,78,.2);border-color:rgba(239,100,78,.4)}
+  .b-neutral{color:var(--fg2);background:var(--raised);border-color:var(--line)}
+  /* button */
+  .btn{border:0;border-radius:var(--r);padding:6px 12px;font-size:14px;font-weight:500;cursor:pointer;transition:.15s}
+  .btn-primary{background:var(--cini);color:#fff}
+  .btn-primary:hover{background:var(--ciniPress)}
+  .btn-ghost{background:var(--raised);color:var(--fg);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--raisedH)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btnrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  /* fields */
+  .field{display:block}
+  .field>label,.flabel{display:block;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3);margin-bottom:4px}
+  .input,select.input,textarea.input{width:100%;border:1px solid var(--line);background:var(--pane2);color:var(--fg);
+    border-radius:var(--r);padding:8px 12px;font-size:14px;outline:none}
+  .input:focus{border-color:var(--cini)}
+  textarea.input{resize:vertical}
+  .muted{color:var(--fg3);font-size:12px}
+  .muted2{color:var(--fg2);font-size:14px}
+  .err{color:var(--mercan);font-size:14px}
+  /* grids */
+  .g2{display:grid;gap:12px;grid-template-columns:1fr}
+  .g3{display:grid;gap:12px;grid-template-columns:1fr}
+  .g4{display:grid;gap:12px;grid-template-columns:1fr 1fr}
+  @media(min-width:640px){.g2.sm{grid-template-columns:1fr 1fr}.g3.sm{grid-template-columns:1fr 1fr 1fr}.g4.sm{grid-template-columns:1fr 1fr}.tiles{grid-template-columns:1fr 1fr 1fr}}
+  @media(min-width:1024px){.g2.lg{grid-template-columns:1fr 1fr}.g4.lg{grid-template-columns:repeat(4,1fr)}.g4.sm{grid-template-columns:repeat(4,1fr)}}
+  /* tiles / boxes */
+  .tile{border:1px solid var(--line);background:var(--pane2);border-radius:var(--r);padding:12px}
+  .tile .k{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3)}
+  .tile .v{margin-top:4px;display:flex;align-items:center;gap:8px;font-size:16px;font-weight:600}
+  .box{border:1px solid var(--line);background:var(--pane2);border-radius:var(--r);padding:12px}
+  .box-dashed{border:1px dashed var(--line);background:var(--pane2);border-radius:var(--r);padding:16px}
+  .kv{font-size:12px;text-transform:uppercase;letter-spacing:.03em;color:var(--fg3)}
+  /* hero home */
+  .hero{border:1px solid var(--line);border-radius:var(--r);padding:20px;background:linear-gradient(#22272e,#1a1e23)}
+  .hero h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.02em}
+  .hero p{margin:4px 0 0;color:var(--fg2)}
+  .pcard{display:flex;flex-direction:column;gap:4px;text-align:left;border:1px solid var(--line);background:var(--raised);
+    border-radius:var(--r);padding:16px;cursor:pointer;transition:.15s;color:inherit}
+  .pcard:hover{border-color:var(--cini);background:var(--raisedH)}
+  .pcard .ic{font-size:24px}
+  .pcard .t{font-weight:600;color:var(--fg)}
+  .pcard .d{font-size:12px;color:var(--fg3)}
+  /* disclosure */
+  details.box>summary{cursor:pointer;list-style:none;font-size:14px;font-weight:500;color:var(--fg2);user-select:none}
+  details.box>summary::-webkit-details-marker{display:none}
+  details.box>summary::before{content:"▸ ";color:var(--fg3)}
+  details[open].box>summary::before{content:"▾ "}
+  details.box>div{margin-top:12px}
+  /* segmented */
+  .seg{display:flex;gap:4px;overflow-x:auto;border:1px solid var(--line);background:var(--pane);border-radius:var(--r);padding:4px}
+  .seg-btn{white-space:nowrap;border:0;background:none;color:var(--fg2);padding:6px 12px;border-radius:var(--r);font-size:14px;font-weight:500;cursor:pointer}
+  .seg-btn:hover{color:var(--fg)}
+  .seg-btn.active{background:var(--cini);color:#fff}
+  .subpanel{display:none;flex-direction:column;gap:16px}
+  .subpanel.active{display:flex}
+  /* project bar */
+  .pbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;border:1px solid var(--line);background:var(--pane);border-radius:var(--r);padding:8px 12px}
+  .pbar label{display:flex;align-items:center;gap:8px;flex:1;min-width:180px}
+  .pbar .input{flex:1;min-width:0}
+  /* waveform / stage */
+  .wave{border:1px solid var(--line);background:var(--pane);border-radius:var(--r);padding:12px}
+  .wave canvas{width:100%;height:72px;display:block;border-radius:var(--r);background:#1a1f28}
+  .stage{position:relative;display:flex;align-items:flex-end;justify-content:center;width:100%;aspect-ratio:16/9;
+    overflow:hidden;border:1px solid var(--line);border-radius:var(--r);background:#000}
+  .stage .bg{position:absolute;inset:0;background:linear-gradient(rgba(34,39,46,.4),transparent 50%,rgba(0,0,0,.6))}
+  .stage .cap{position:relative;z-index:2;padding:0 24px 32px;color:#f5f7fa;font-size:32px;text-align:center}
+  .stage .empty{position:relative;z-index:2;color:var(--fg3);font-size:14px;padding:16px}
+  .range{width:100%;accent-color:var(--cini)}
+  /* table */
+  table{width:100%;border-collapse:collapse;font-size:12px;text-align:left}
+  thead{color:var(--fg3)}
+  th{padding:4px 12px 4px 0;border-bottom:1px solid var(--line-soft)}
+  td{padding:4px 12px 4px 0;border-bottom:1px solid var(--line-soft);color:var(--fg2)}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+  .list{margin:0;padding:0;list-style:none}
+  .list li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+  .list li:last-child{border-bottom:0}
+  .divider{border-top:1px solid var(--line-soft);padding-top:12px;margin-top:12px}
+  code{background:var(--pane2);padding:1px 5px;border-radius:3px;font-size:12px;color:var(--fg2)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="row">
+      <div class="brand"><b>Apeksis</b><span>Ses Çalışma Alanı</span></div>
+      <div class="topright"><span class="savechip">otomatik kaydedildi</span><span class="note">Yerel · gerçek uç noktalar</span></div>
+    </div>
+    <nav class="strip" id="strip"></nav>
+  </div>
+
+  <div class="wrap">
+    <div class="side">
+      <nav class="sidenav" id="sidenav"></nav>
+    </div>
+
+    <div class="main">
+
+      <!-- ============================ ANA EKRAN ============================ -->
+      <section class="page active" id="page-durum">
+        <div class="hero">
+          <h1>Apeksis Ses Çalışma Alanı</h1>
+          <p>Yerel, bütünleşik ses uygulaması. Normal kullanımda API anahtarı girmenize gerek yok.</p>
+          <div class="g4 lg">
+            <button class="pcard" onclick="show('tts')"><span class="ic">🔊</span><span class="t">Metinden ses üret</span><span class="d">Yaz, dinle, indir</span></button>
+            <button class="pcard" onclick="show('stt')"><span class="ic">📝</span><span class="t">Sesten transkript</span><span class="d">Dosya yükle, metne çevir</span></button>
+            <button class="pcard" onclick="show('canli-stt')"><span class="ic">🎙️</span><span class="t">Canlı mikrofon</span><span class="d">Mikrofondan anlık tanıma</span></button>
+            <button class="pcard" onclick="show('studio');seg('st-transkript')"><span class="ic">🎬</span><span class="t">Proje Stüdyosu</span><span class="d">Düzenle, altyazı, dışa aktar</span></button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Servis Durumu</h2>
+            <div class="card-actions"><button class="btn btn-ghost">Yenile</button></div></div>
+          <div class="card-body">
+            <div class="g3 sm tiles">
+              <div class="tile"><div class="k">Canlılık</div><div class="v">Erişilemedi <span class="badge b-bad">hata</span></div></div>
+              <div class="tile"><div class="k">Hazır servis</div><div class="v">Bilinmiyor <span class="badge b-neutral">veri</span></div></div>
+              <div class="tile"><div class="k">Yüklü model</div><div class="v">Bilinmiyor <span class="badge b-neutral">veri</span></div></div>
+            </div>
+            <p class="muted">Durum, gateway'in gerçek /health ve /readiness yanıtlarından alınır. İlk açılışta modeller hâlâ yükleniyor olabilir; "bekliyor" normaldir.</p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Modeller</h2></div>
+          <div class="card-body"><p class="muted2">Model listesi alınamadı — servis henüz kapalı olabilir.</p></div>
+        </div>
+      </section>
+
+      <!-- ============================ TTS ============================ -->
+      <section class="page" id="page-tts">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Konuşma Üretimi · TTS</h2></div>
+          <div class="card-body">
+            <div class="field"><label>METİN</label>
+              <textarea class="input" style="height:112px">Merhaba, bu Apeksis ses denemesidir.</textarea></div>
+            <div class="field"><label>MODEL</label>
+              <select class="input"><option>ema-lightning</option></select></div>
+            <details class="box"><summary>Gelişmiş ses ayarları</summary>
+              <div class="g3 sm">
+                <div class="field"><label>Ses</label><input class="input" value="ema-tr"></div>
+                <div class="field"><label>Biçim</label><select class="input"><option>mp3</option><option>wav</option><option>pcm</option></select></div>
+                <div class="field"><label>Örnekleme hızı</label><select class="input"><option>8000 Hz</option><option>16000 Hz</option><option selected>24000 Hz</option><option>48000 Hz</option></select></div>
+              </div>
+              <div class="field"><label>Hız: 1.00×</label><input class="range" type="range" min="0.25" max="4" step="0.05" value="1"></div>
+            </details>
+            <div class="btnrow"><button class="btn btn-primary">Üret</button><span class="muted">Backend bağlı değilse "Üret" hata döner — bu önizlemedir.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ STT ============================ -->
+      <section class="page" id="page-stt">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Konuşma Tanıma · STT (dosya)</h2></div>
+          <div class="card-body">
+            <div class="box-dashed">
+              <div style="font-size:14px;font-weight:500;color:var(--fg)">Ses dosyası seç</div>
+              <div class="muted" style="margin:4px 0 12px">WAV · MP3 · OGG · FLAC · M4A · OPUS — yalnızca bu cihazdan işlenir</div>
+              <input type="file" class="input" style="padding:6px">
+            </div>
+            <details class="box"><summary>Gelişmiş tanıma ayarları</summary>
+              <div class="g3 sm">
+                <div class="field"><label>Model</label><select class="input"><option>whisper-1</option></select></div>
+                <div class="field"><label>Dil</label><select class="input"><option value="">otomatik</option><option selected>tr</option><option>en</option></select></div>
+                <div class="field"><label>Yanıt biçimi</label><select class="input"><option>json</option><option selected>verbose_json</option><option>text</option><option>srt</option><option>vtt</option></select></div>
+              </div>
+              <label class="btnrow" style="gap:6px;font-size:14px;color:var(--fg2)"><input type="checkbox" checked> Kelime zamanları</label>
+            </details>
+            <div class="btnrow"><button class="btn btn-primary" disabled>Çevir</button><span class="muted">Dosya seçilene kadar devre dışı.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ PROJE STÜDYOSU ============================ -->
+      <section class="page" id="page-studio">
+        <div class="pbar">
+          <label><span class="grp-title" style="padding:0">PROJE</span><input class="input" value="Yeni proje"></label>
+          <span class="badge b-neutral">değişiklik yok</span>
+          <div class="btnrow" style="gap:8px"><button class="btn btn-ghost">Kaydet</button><button class="btn btn-ghost">Yeni</button></div>
+        </div>
+        <div class="seg" id="studio-seg">
+          <button class="seg-btn active" data-seg="st-transkript" onclick="seg('st-transkript')">Transkript</button>
+          <button class="seg-btn" data-seg="st-altyazi" onclick="seg('st-altyazi')">Altyazı</button>
+          <button class="seg-btn" data-seg="st-cikti" onclick="seg('st-cikti')">Dışa Aktar</button>
+          <button class="seg-btn" data-seg="st-projeler" onclick="seg('st-projeler')">Projeler</button>
+        </div>
+
+        <!-- Transkript -->
+        <div class="subpanel active" id="st-transkript">
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">Transkript Stüdyosu</h2></div>
+            <div class="card-body"><p class="muted">Kelime zamanlı, düzenlenebilir ve sesle senkronize editör.</p>
+              <div class="g2 lg">
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div class="field"><label>Ses dosyası</label><input type="file" class="input"></div>
+                  <div class="btnrow"><button class="btn btn-primary" disabled>Sunucu STT çalıştır (verbose_json)</button>
+                    <button class="btn btn-ghost">JSON içe aktar</button></div>
+                  <div class="wave"><canvas></canvas>
+                    <div class="btnrow" style="margin-top:8px">
+                      <button class="btn btn-ghost" disabled>Oynat</button>
+                      <button class="btn btn-ghost" disabled>−5 s</button>
+                      <button class="btn btn-ghost" disabled>+5 s</button>
+                      <span class="muted">Hız <select class="input" style="width:auto;display:inline-block;padding:4px 8px"><option>1×</option></select></span>
+                      <span class="muted mono">0:00 / 0:00</span>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div class="btnrow">
+                    <button class="btn btn-ghost" disabled>Geri al (Ctrl+Z)</button>
+                    <button class="btn btn-ghost" disabled>Yinele (Ctrl+Y)</button>
+                    <button class="btn btn-ghost" disabled>Orijinal sonuca dön</button>
+                    <span class="badge b-neutral">rev 0</span>
+                  </div>
+                  <details class="box"><summary>Noktalama</summary>
+                    <p class="muted">Sunucu noktalama önerisini uygulamak için önce transkript gerekir.</p></details>
+                  <div class="box-dashed"><p class="muted2">Henüz transkript yok. Bir ses dosyası seçin ve Sunucu STT'yi çalıştırın, ya da JSON içe aktarın.</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Altyazı -->
+        <div class="subpanel" id="st-altyazi">
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">Altyazı Stüdyosu</h2></div>
+            <div class="card-body"><p class="muted">Beş stil ve transkriptle senkron canlı önizleme. Önizleme, Transkript sekmesindeki aynı ses oynatıcısını ve düzenlenmiş metni kullanır.</p>
+              <div class="g2 lg">
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div class="stage"><div class="bg"></div><div class="empty">Altyazı yok — önce Transkript sekmesinde bir ses tanıyın.</div></div>
+                  <div class="btnrow"><button class="btn btn-ghost" disabled>Oynat</button><button class="btn btn-ghost" disabled>Baştan</button><span class="muted mono">0 altyazı · 0:00 / 0:00</span></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <div class="field"><label>STİL</label>
+                    <div class="g3 sm" style="grid-template-columns:repeat(3,1fr)">
+                      <button class="seg-btn active" style="text-align:center">Klasik</button>
+                      <button class="seg-btn" style="text-align:center">Karaoke</button>
+                      <button class="seg-btn" style="text-align:center">Vurgu</button>
+                      <button class="seg-btn" style="text-align:center">Pop</button>
+                      <button class="seg-btn" style="text-align:center">Sade</button>
+                    </div></div>
+                  <div class="field"><label>YAZI TİPİ</label><select class="input"><option>Inter</option><option>Georgia</option><option>Times New Roman</option><option>Courier New</option><option>Arial Black</option><option>Verdana</option></select></div>
+                  <div class="field"><label>BOYUT · 32px</label><input class="range" type="range" min="16" max="64" value="32"></div>
+                  <div class="g2 sm"><div class="field"><label>METİN RENGİ</label><input type="color" value="#f5f7fa" class="input" style="height:36px;padding:2px"></div>
+                    <div class="field"><label>VURGU RENGİ</label><input type="color" value="#476de6" class="input" style="height:36px;padding:2px"></div></div>
+                  <label class="btnrow" style="gap:6px;color:var(--fg2)"><input type="checkbox"> Arka plan kutusu</label>
+                  <div class="g2 sm"><div class="field"><label>KONUM</label><select class="input"><option>Üst</option><option>Orta</option><option selected>Alt</option></select></div>
+                    <label class="btnrow" style="gap:6px;color:var(--fg2);align-items:flex-end"><input type="checkbox"> Büyük harf</label></div>
+                  <p class="muted">Stil, projeyle birlikte tarayıcıda otomatik saklanır ve dışa aktarma MP4 üretiminde önizlemeyle aynı kullanılır.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dışa Aktar -->
+        <div class="subpanel" id="st-cikti">
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">Dışa Aktarma</h2></div>
+            <div class="card-body"><p class="muted">Altyazı ve transkript, şu anki projeden tarayıcıda üretilir (0 altyazı). Hiçbir sunucuya gönderilmez.</p>
+              <div class="g2 sm">
+                <div class="box" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-weight:600">SRT</div><div class="muted">En yaygın altyazı biçimi</div></div><button class="btn btn-primary" disabled>İndir</button></div>
+                <div class="box" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-weight:600">VTT</div><div class="muted">WebVTT · HTML5 &lt;track&gt;</div></div><button class="btn btn-primary" disabled>İndir</button></div>
+                <div class="box" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-weight:600">TXT</div><div class="muted">Düz metin · satır başına altyazı</div></div><button class="btn btn-primary" disabled>İndir</button></div>
+                <div class="box" style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-weight:600">JSON</div><div class="muted">TranscriptDocument · zamanlar dahil</div></div><button class="btn btn-primary" disabled>İndir</button></div>
+              </div>
+              <div class="box">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px">
+                  <div><div style="display:flex;align-items:center;gap:8px;font-weight:600">MP4 video (altyazı yakılmış) <span class="badge b-ok">desteleniyor</span></div>
+                    <div class="muted" style="margin-top:4px">Ses gerçek-zamanlı çalınırken stiller canvas'a çizilir ve H.264 olarak kaydedilir.</div></div>
+                  <button class="btn btn-primary" disabled>MP4 üret</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Projeler -->
+        <div class="subpanel" id="st-projeler">
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">Projeler</h2>
+              <div class="card-actions"><span class="badge b-neutral">Otomatik kayıt: değişiklik yok</span><button class="btn btn-ghost">Şimdi kaydet</button><button class="btn btn-primary">Yeni proje</button></div></div>
+            <div class="card-body">
+              <div class="g2 sm"><div class="field"><label>PROJE ADI</label><input class="input" value="Yeni proje" placeholder="Örn. Bölüm 3 — röportaj"></div>
+                <div class="btnrow" style="align-items:flex-end"><button class="btn btn-ghost" disabled>Projeyi dışa aktar (.apeksis)</button><button class="btn btn-ghost">Proje içe aktar (.apeksis)</button></div></div>
+              <p class="muted">Projeler yalnızca bu tarayıcıda saklanır (IndexedDB); ses dosyası da yerel kayda dahildir. Dışa aktarılan <b>.apeksis</b> medyayı İÇERMEZ — transkript, stil ve başlık taşınır.</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2 class="card-title">Kayıtlı projeler · 0</h2></div>
+            <div class="card-body"><p class="muted2">Henüz kayıtlı proje yok. Bir transkript oluşturduğunuzda otomatik kayıt devreye girer.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ CANLI TTS ============================ -->
+      <section class="page" id="page-canli-tts">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Canlı TTS Akışı · WS /v1/tts/stream</h2>
+            <div class="card-actions"><span class="badge b-bad">WS: kapalı</span></div></div>
+          <div class="card-body">
+            <div class="field"><label>METİN</label><textarea class="input" style="height:96px">Merhaba, bu canlı bir WebSocket ses akışı denemesidir.</textarea></div>
+            <div class="g4 lg">
+              <div class="field"><label>Model</label><select class="input"><option>ema-lightning</option></select></div>
+              <div class="field"><label>Ses</label><input class="input" value="ema-tr"></div>
+              <div class="field"><label>Örnekleme</label><select class="input"><option>24000 Hz</option></select></div>
+              <div class="field"><label>Chunk</label><select class="input"><option>100 ms</option></select></div>
+            </div>
+            <div class="btnrow"><button class="btn btn-primary">Konuş &amp; Dinle</button><button class="btn btn-ghost" disabled>İptal</button><button class="btn btn-ghost" disabled>Kapat</button></div>
+            <div class="btnrow"><span class="badge b-neutral">ilk ses: —</span><span class="badge b-neutral">chunk: 0</span><span class="badge b-neutral">süre: 0 ms</span><span class="badge b-neutral">kuyruk: 0.00 sn</span></div>
+            <p class="muted">Ses, ilk parçalardan itibaren çalmaya başlar; tamamlanması beklenmez. İptal oynatma kuyruğunu temizler.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ CANLI STT ============================ -->
+      <section class="page" id="page-canli-stt">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Canlı STT · WS /v1/realtime/transcriptions</h2>
+            <div class="card-actions"><span class="badge b-neutral">sessiz</span><span class="badge b-bad">WS: kapalı</span></div></div>
+          <div class="card-body">
+            <div class="g3 sm">
+              <div class="field"><label>Model</label><select class="input"><option>whisper-1</option></select></div>
+              <div class="field"><label>Dil</label><select class="input"><option>tr</option><option>en</option></select></div>
+              <div class="field"><label>Örnekleme</label><select class="input"><option>16000 Hz</option><option>8000 Hz</option></select></div>
+            </div>
+            <div class="btnrow"><button class="btn btn-primary">Mikrofonu Başlat</button>
+              <div class="box" style="flex:1;height:12px;padding:0;overflow:hidden"><div style="height:100%;width:0%;background:var(--firuze)"></div></div></div>
+            <div class="box"><div class="kv">Canlı (partial)</div><p class="muted2" style="margin:4px 0 0;font-style:italic">— konuşunca anlık metin burada belirir —</p></div>
+            <div><div class="kv">Kesinleşenler (final)</div><p class="muted2" style="margin-top:4px">Henüz yok.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ OTURUMLAR ============================ -->
+      <section class="page" id="page-oturumlar">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Oturum · /v1/sessions</h2>
+            <div class="card-actions"><button class="btn btn-primary">Yeni oturum aç</button><button class="btn btn-ghost" disabled>Kapat</button></div></div>
+          <div class="card-body"><p class="muted2">Oturum açmak için <b>realtime:connect</b> kapsamlı bir API anahtarı gerekir. Başarısız olursa <code>503 n8n_unconfigured</code> ya da <code>429 capacity_exceeded</code> hatası görünür.</p></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Turn gönder · POST /v1/sessions/{id}/turns</h2></div>
+          <div class="card-body">
+            <div class="field"><label>TRANSCRIPT (1–10000 KARAKTER)</label><textarea class="input" style="height:96px" placeholder="Örn. merhaba, bugünkü siparişlerimi göster." disabled></textarea></div>
+            <div class="g2 sm"><div class="field"><label>DİL</label><input class="input" value="tr-TR" disabled></div>
+              <div class="field"><label>CONTEXT (JSON · OPSİYONEL)</label><input class="input" placeholder='{"caller_id":"12345"}' disabled></div></div>
+            <div class="btnrow"><button class="btn btn-primary" disabled>Turn gönder</button><span class="muted">Sunucu yanıtı <code>TurnAction</code> şemasıyla doğrulanmış olmalı.</span></div>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h2 class="card-title">Validated actions (0)</h2></div>
+          <div class="card-body"><p class="muted2">Henüz turn gönderilmedi. Dönen eylemler salt-okunur gösterilir; otomatik çalıştırılmaz.</p></div></div>
+      </section>
+
+      <!-- ============================ MODELLER ============================ -->
+      <section class="page" id="page-modeller">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Modeller · Yetenekler</h2>
+            <div class="card-actions"><button class="btn btn-ghost">Yenile</button></div></div>
+          <div class="card-body">
+            <div class="g2 sm">
+              <div class="box"><div style="display:flex;justify-content:space-between"><b>ema-lightning</b><span class="muted">tts</span></div><div class="btnrow" style="margin-top:8px"><span class="badge b-ok">tts</span></div></div>
+              <div class="box"><div style="display:flex;justify-content:space-between"><b>antalia-mini</b><span class="muted">tts</span></div><div class="btnrow" style="margin-top:8px"><span class="badge b-ok">tts</span></div></div>
+              <div class="box"><div style="display:flex;justify-content:space-between"><b>whisper-1</b><span class="muted">stt</span></div><div class="btnrow" style="margin-top:8px"><span class="badge b-ok">stt</span><span class="badge b-neutral">time: word, segment</span></div></div>
+            </div>
+            <p class="muted">Modelleri yalnızca backend sağlar; WebUI kurulu modelleri listeler, tarayıcıdan model eklenemez.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ AYARLAR ============================ -->
+      <section class="page" id="page-ayarlar">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Ayarlar</h2></div>
+          <div class="card-body">
+            <div class="box" style="display:flex;align-items:flex-start;gap:8px"><span class="badge b-neutral">Kurulum</span>
+              <span class="muted2">Yerel kimlik durumu okunamadı. Normal (turnkey) kurulumda API anahtarı girmenize gerek yoktur.</span></div>
+            <div class="muted">Anahtar alanı yalnızca LAN/anahtar gereken kurulumlarda görünür (aşağıda gelişmiş içinde).</div>
+            <details class="box"><summary>Gelişmiş bağlantı ayarları</summary>
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div class="field"><label>API ANAHTARI (YALNIZCA LAN / ANAHTAR GEREKİYORSA)</label><input class="input" type="password" placeholder="boş bırakılabilir"></div>
+                <div class="field"><label>TEMEL URL (BOŞ = AYNI ORIGIN)</label><input class="input" placeholder="https://192.168.1.120:8443"></div>
+              </div></details>
+            <div class="btnrow"><button class="btn btn-primary">Kaydet</button><span class="muted">Anahtar yalnızca bu tarayıcıda (localStorage) saklanır.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ HATA KONSOLU ============================ -->
+      <section class="page" id="page-konsol">
+        <div class="card">
+          <div class="card-head"><h2 class="card-title">Hata Konsolu</h2>
+            <div class="card-actions"><button class="btn btn-ghost">Temizle</button></div></div>
+          <div class="card-body">
+            <table>
+              <thead><tr><th>zaman</th><th>yöntem</th><th>yol</th><th>olay</th><th>durum</th><th>süre</th><th>istek-id</th></tr></thead>
+              <tbody><tr><td class="muted" colspan="7">Henüz istek yok.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <footer>Apeksis · Transkript &amp; Altyazı Stüdyosu, dışa aktarma ve projeler tarayıcıda çalışır; ham transkript ve proje verisi bu cihazdan çıkmaz.</footer>
+</div>
+
+<script>
+  var NAV=[
+    {g:"Genel Bakış",items:[["durum","Panel"]]},
+    {g:"Ses Hizmetleri",items:[["tts","Konuşma Üretimi"],["stt","Konuşma Tanıma"]]},
+    {g:"Stüdyo",items:[["studio","Proje Stüdyosu"]]},
+    {g:"Ayarlar",items:[["ayarlar","Ayarlar"]],adv:[["canli-tts","Canlı TTS"],["canli-stt","Canlı STT"],["oturumlar","Oturumlar"],["modeller","Modeller"],["konsol","Hata Konsolu"]]}
+  ];
+  var sidenav=document.getElementById("sidenav"), strip=document.getElementById("strip");
+  NAV.forEach(function(grp){
+    var t=document.createElement("div");t.className="grp-title";t.textContent=grp.g;sidenav.appendChild(t);
+    grp.items.forEach(function(it){sidenav.appendChild(navBtn(it[0],it[1]))});
+    if(grp.adv){var a=document.createElement("div");a.className="grp-adv";a.textContent="Gelişmiş";sidenav.appendChild(a);
+      grp.adv.forEach(function(it){sidenav.appendChild(navBtn(it[0],it[1]))});}
+  });
+  NAV.forEach(function(grp){grp.items.concat(grp.adv||[]).forEach(function(it){
+    var b=document.createElement("button");b.className="nav-item";b.textContent=it[1];b.dataset.nav=it[0];
+    b.setAttribute("onclick","show('"+it[0]+"')");strip.appendChild(b);});});
+  function navBtn(id,label){var b=document.createElement("button");b.className="nav-item";b.textContent=label;b.dataset.nav=id;
+    b.setAttribute("onclick","show('"+id+"')");return b;}
+  function show(id){
+    document.querySelectorAll(".page").forEach(function(p){p.classList.toggle("active",p.id==="page-"+id)});
+    document.querySelectorAll("[data-nav]").forEach(function(b){b.classList.toggle("active",b.dataset.nav===id)});
+    window.scrollTo(0,0);
+  }
+  function seg(id){
+    document.querySelectorAll(".subpanel").forEach(function(p){p.classList.toggle("active",p.id===id)});
+    document.querySelectorAll("[data-seg]").forEach(function(b){b.classList.toggle("active",b.dataset.seg===id)});
+  }
+</script>
+</body>
+</html>

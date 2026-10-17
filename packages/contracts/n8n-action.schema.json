@@ -1,0 +1,81 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "speak",
+        "transfer",
+        "hangup",
+        "listen",
+        "fallback"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "text": {
+      "anyOf": [
+        {
+          "maxLength": 5000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Text"
+    },
+    "language": {
+      "default": "tr-TR",
+      "title": "Language",
+      "type": "string"
+    },
+    "voice": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Voice"
+    },
+    "transfer_target": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Transfer Target"
+    },
+    "metadata": {
+      "additionalProperties": true,
+      "title": "Metadata",
+      "type": "object"
+    },
+    "idempotency_key": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "action",
+    "idempotency_key"
+  ],
+  "title": "TurnAction",
+  "type": "object"
+}

@@ -1,0 +1,21 @@
+# Merge into ~/.hermes/config.yaml; keep unrelated Hermes agent settings.
+# Secrets resolve from ~/.hermes/.env. Must set VOXI_API_KEY there first.
+# Use the network address reachable FROM Hermes; this host example is not for Docker peers.
+stt:
+  enabled: true
+  provider: openai
+  language: tr
+  openai:
+    base_url: http://127.0.0.1:8080/v1
+    api_key: ${VOXI_API_KEY}
+    model: whisper-1
+    timeout: 180
+    max_retries: 0
+tts:
+  provider: openai
+  openai:
+    base_url: http://127.0.0.1:8080/v1
+    api_key: ${VOXI_API_KEY}
+    model: ema-lightning
+    voice: ema-tr
+    speed: 1.0

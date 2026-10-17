@@ -1,0 +1,556 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Voxi Local Voice Gateway",
+    "version": "0.3.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Ready",
+        "operationId": "ready_readyz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/socket": {
+      "post": {
+        "summary": "Mint Socket Ticket",
+        "description": "F5: single-use, short-lived WebSocket handshake ticket.\n\nThe caller authenticates with the normal Bearer header and declares the\nscope of the socket they intend to open. The gateway issues an opaque\nticket bound to that principal + scope; the browser then dials the WS\nroute with `?ticket=<value>` instead of leaking its long-lived key in\nthe URL. Ticket lifetime is `VOXI_WS_TICKET_TTL` (default 30 s) and\nevery value is consumed on first successful handshake; replays of the\nsame ticket are rejected, expired tickets are reaped, and any probe\nerror collapses to a single 401 to avoid a liveness oracle.",
+        "operationId": "mint_socket_ticket_v1_auth_socket_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocketTicketMintRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Mint Socket Ticket V1 Auth Socket Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "VoxiApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/endpoints": {
+      "get": {
+        "summary": "Endpoints",
+        "description": "Every route this gateway serves and the scope a key needs for it.\n\nPublic routes carry an empty `scopes` list. This is the honest answer to\n\"which key do I give an external client?\": it lists the agent (n8n)\nsession routes and the Voxi streaming sockets too, not only the\nOpenAI-compatible subset.",
+        "operationId": "endpoints_v1_endpoints_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/models": {
+      "get": {
+        "summary": "Models",
+        "operationId": "models_v1_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "VoxiApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/audio/speech": {
+      "post": {
+        "summary": "Speech",
+        "operationId": "speech_v1_audio_speech_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeechRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "VoxiApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/audio/transcriptions": {
+      "post": {
+        "summary": "Transcription",
+        "operationId": "transcription_v1_audio_transcriptions_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_transcription_v1_audio_transcriptions_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "VoxiApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/sessions": {
+      "post": {
+        "summary": "Create Session",
+        "operationId": "create_session_v1_sessions_post",
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "VoxiApiKey": []
+          }
+        ]
+      }
+    },
+    "/v1/sessions/{session_id}/turns": {
+      "post": {
+        "summary": "Deliver Turn",
+        "operationId": "deliver_turn_v1_sessions__session_id__turns_post",
+        "security": [
+          {
+            "VoxiApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sessions/{session_id}": {
+      "delete": {
+        "summary": "Delete Session",
+        "operationId": "delete_session_v1_sessions__session_id__delete",
+        "security": [
+          {
+            "VoxiApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "session_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Session Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Body_transcription_v1_audio_transcriptions_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "whisper-1"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompt"
+          },
+          "response_format": {
+            "type": "string",
+            "title": "Response Format",
+            "default": "json"
+          },
+          "temperature": {
+            "type": "number",
+            "title": "Temperature",
+            "default": 0
+          },
+          "word_timestamps": {
+            "type": "boolean",
+            "title": "Word Timestamps",
+            "default": false
+          },
+          "timestamp_granularities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp Granularities"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_transcription_v1_audio_transcriptions_post"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "SocketTicketMintRequest": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "audio:write",
+              "audio:read",
+              "realtime:connect"
+            ],
+            "title": "Scope"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "scope"
+        ],
+        "title": "SocketTicketMintRequest",
+        "description": "Body for POST /v1/auth/socket (F5 security).\n\nBrowser WebSocket clients cannot set an Authorization header, so they\npreviously sent the bearer in the URL via `?token=`. That leaks the long-\nlived key into any component that records the request line (packet capture,\nextensions, third-party log pipelines). This endpoint short-circuits the\nexposure: the caller authenticates with the normal Bearer header, receives\nan opaque single-use ticket bound to the requested scope, and dials the\nsocket with `?ticket=<value>`. The old `?token=` path is retained for\nbackwards compatibility; nothing in this contract breaks existing clients."
+      },
+      "SpeechRequest": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "ema-lightning"
+          },
+          "input": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Input"
+          },
+          "voice": {
+            "type": "string",
+            "title": "Voice",
+            "default": "ema-tr"
+          },
+          "response_format": {
+            "type": "string",
+            "enum": [
+              "wav",
+              "pcm",
+              "mp3"
+            ],
+            "title": "Response Format",
+            "default": "mp3"
+          },
+          "speed": {
+            "type": "number",
+            "maximum": 4.0,
+            "minimum": 0.25,
+            "title": "Speed",
+            "default": 1
+          },
+          "sample_rate": {
+            "type": "integer",
+            "enum": [
+              8000,
+              16000,
+              24000,
+              48000
+            ],
+            "title": "Sample Rate",
+            "default": 24000
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "input"
+        ],
+        "title": "SpeechRequest"
+      },
+      "TurnInput": {
+        "properties": {
+          "transcript": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Transcript"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "default": "tr-TR"
+          },
+          "context": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "transcript"
+        ],
+        "title": "TurnInput"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "VoxiApiKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "API key"
+      }
+    }
+  }
+}

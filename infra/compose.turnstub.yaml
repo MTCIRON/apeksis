@@ -1,0 +1,48 @@
+# Test-only Compose overlay that plugs the gateway into a minimal turn responder
+# so /v1/sessions + /v1/sessions/{id}/turns can be verified when no real n8n is
+# deployed. NOT for production. Point VOXI_N8N_WEBHOOK_URL at the operator's
+# real n8n webhook for actual voice-agent traffic (see integrations/n8n).
+#
+#   docker compose -f compose.yaml -f infra/compose.proxy.yaml \
+#                  -f infra/compose.turnstub.yaml up -d --wait
+#
+# The bearer below is a fixed development key, at least 32 characters as the
+# broker requires; it never leaves the speech network.
+
+services:
+  turn-stub:
+    image: python:3.12-alpine
+    init: true
+    restart: unless-stopped
+    networks: [speech]
+    volumes:
+      - ./infra/turn-stub.py:/app/turn-stub.py:ro
+    command: ["python", "/app/turn-stub.py", "--port", "9099"]
+    environment:
+      VOXI_N8N_API_KEY: dev-only-turn-stub-key-please-replace-0123456789
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import socket,sys; s=socket.socket(); s.settimeout(2); sys.exit(0 if s.connect_ex(('127.0.0.1',9099))==0 else 1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  gateway:
+    depends_on:
+      turn-stub:
+        condition: service_healthy
+    environment:
+      VOXI_N8N_WEBHOOK_URL: http://turn-stub:9099/
+      VOXI_N8N_API_KEY: dev-only-turn-stub-key-please-replace-0123456789
+      VOXI_N8N_TIMEOUT: 10

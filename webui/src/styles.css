@@ -1,0 +1,95 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-FileCopyrightText: 2026 Mustafa Tayyar Çalışkan
+ */
+
+/*
+ * Design tokens and element defaults. Components are styled with Tailwind
+ * utilities; index.css maps these tokens to them (bg-pane, text-fg-2, ...).
+ *
+ * Ported from the original studio app so /ui/ shares ONE design language.
+ */
+
+:root {
+  --bg: #14171a;
+  --pane: #1a1e23;
+  --pane-2: #22272e;
+  --raised: #282f37;
+  --raised-hover: #323a44;
+  --line: #2e353e;
+  --line-soft: #232830;
+  --text: #e6ebf0;
+  --text-2: #98a2ad;
+  --text-3: #65707b;
+  --cini: #476de6;
+  --cini-press: #395cd4;
+  --cini-wash: rgba(71, 109, 230, 0.16);
+  --cini-glow: rgba(71, 109, 230, 0.28);
+  --firuze: #36c2b4;
+  --mercan: #ef644e;
+  --wave: #7a848f;
+  --wave-played: #8fa6f2;
+
+  --ui: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --read: var(--ui);
+  --r: 7px;
+  --r-sm: 4px;
+
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--ui);
+  font-feature-settings: "cv05" 1, "cv11" 1, "calt" 1;
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: default;
+}
+
+a {
+  color: var(--wave-played);
+  text-underline-offset: 0.18em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--cini);
+  outline-offset: 1px;
+  border-radius: var(--r-sm);
+}
+
+::selection {
+  background: var(--cini-wash);
+}
+
+/* Phones: the page scrolls instead of the panes. */
+@media (max-width: 860px) {
+  html,
+  body,
+  #root {
+    overflow: auto;
+  }
+}

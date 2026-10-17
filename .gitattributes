@@ -1,0 +1,7 @@
+# Endings matter for shell scripts: POSIX sh cannot parse CRLF files.
+* text=auto
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.woff2 binary
+*.onnx binary

@@ -1,0 +1,42 @@
+# Use only with an NVIDIA GPU, CUDA 12.6-compatible host driver and NVIDIA
+# Container Toolkit. Torch 2.7.0 cu126 matches uv.lock's CUDA12/cuDNN9 versions.
+x-gpu-environment: &gpu-environment
+  LD_LIBRARY_PATH: /usr/local/lib/python3.12/site-packages/nvidia/cublas/lib:/usr/local/lib/python3.12/site-packages/nvidia/cudnn/lib:/usr/local/lib/python3.12/site-packages/nvidia/cuda_runtime/lib
+x-gpu-deploy: &gpu-deploy
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1
+          capabilities: [gpu]
+
+services:
+  tts-ema:
+    image: voxi-tts:cuda-local
+    build:
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+    environment:
+      <<: *gpu-environment
+      TTS_DEVICE: cuda
+    deploy: *gpu-deploy
+  stt-whisper:
+    image: voxi-stt:cuda-local
+    build:
+      args:
+        INSTALL_CUDA_TORCH: "1"
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+    environment:
+      <<: *gpu-environment
+      STT_DEVICE: cuda
+      STT_COMPUTE_TYPE: float16
+    deploy: *gpu-deploy
+  tts-antalia:
+    image: voxi-antalia:cuda-local
+    build:
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+    environment:
+      <<: *gpu-environment
+      TTS_DEVICE: cuda
+    deploy: *gpu-deploy

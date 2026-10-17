@@ -1,0 +1,388 @@
+name: voxi
+
+x-runtime: &runtime
+  init: true
+  user: "10001:10001"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:size=512m,mode=1777
+  restart: unless-stopped
+  stop_grace_period: 45s
+  networks: [speech]
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-worker-environment: &worker-environment
+  # An explicit .env value always wins. Without one, the one-shot `secrets`
+  # service generates the key into the shared secrets volume, so this stays empty.
+  VOXI_WORKER_API_KEY: ${VOXI_WORKER_API_KEY:-}
+  VOXI_MAX_UPLOAD_BYTES: ${VOXI_MAX_UPLOAD_BYTES:-26214400}
+  VOXI_MAX_AUDIO_SECONDS: ${VOXI_MAX_AUDIO_SECONDS:-600}
+  VOXI_INFERENCE_CONCURRENCY: "1"
+  VOXI_INFERENCE_TIMEOUT_SECONDS: ${VOXI_REQUEST_TIMEOUT:-120}
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+  HF_HUB_DISABLE_TELEMETRY: "1"
+  OMP_NUM_THREADS: ${VOXI_CPU_THREADS:-4}
+  WHISPER_CPU_THREADS: ${VOXI_CPU_THREADS:-4}
+
+services:
+  gateway:
+    <<: *runtime
+    image: voxi-gateway:local
+    build:
+      context: .
+      target: gateway
+    environment:
+      VOXI_API_KEY: ${VOXI_API_KEY:-}
+      VOXI_API_KEYS_JSON: ${VOXI_API_KEYS_JSON:-}
+      VOXI_WORKER_API_KEY: ${VOXI_WORKER_API_KEY:-}
+      TTS_URL: http://tts-ema:8081
+      STT_URL: http://stt-whisper:8082
+      STT_TURBO_URL: ${STT_TURBO_URL:-}
+      ANTALIA_URL: ${ANTALIA_URL:-}
+      VOXI_ALLOW_ALLOY: ${VOXI_ALLOW_ALLOY:-false}
+      VOXI_STREAM_SAMPLE_RATE: ${VOXI_STREAM_SAMPLE_RATE:-16000}
+      VOXI_TTS_CHUNK_MS: ${VOXI_TTS_CHUNK_MS:-100}
+      VOXI_WS_IDLE_TIMEOUT: ${VOXI_WS_IDLE_TIMEOUT:-60}
+      VOXI_STREAM_STT_TIMEOUT: ${VOXI_STREAM_STT_TIMEOUT:-30}
+      VOXI_VAD_START_MS: ${VOXI_VAD_START_MS:-100}
+      VOXI_VAD_END_MS: ${VOXI_VAD_END_MS:-700}
+      VOXI_VAD_MIN_SPEECH_MS: ${VOXI_VAD_MIN_SPEECH_MS:-200}
+      VOXI_VAD_OPEN_RMS: ${VOXI_VAD_OPEN_RMS:-350}
+      VOXI_VAD_CLOSE_RMS: ${VOXI_VAD_CLOSE_RMS:-200}
+      VOXI_REQUEST_TIMEOUT: ${VOXI_REQUEST_TIMEOUT:-120}
+      VOXI_MAX_UPLOAD_BYTES: ${VOXI_MAX_UPLOAD_BYTES:-26214400}
+      VOXI_MAX_CONCURRENCY: ${VOXI_MAX_CONCURRENCY:-4}
+      VOXI_RATE_LIMIT_PER_MINUTE: ${VOXI_RATE_LIMIT_PER_MINUTE:-60}
+      VOXI_N8N_WEBHOOK_URL: ${VOXI_N8N_WEBHOOK_URL:-}
+      VOXI_N8N_API_KEY: ${VOXI_N8N_API_KEY:-}
+      VOXI_N8N_TIMEOUT: ${VOXI_N8N_TIMEOUT:-10}
+      VOXI_TRANSFER_TARGETS: ${VOXI_TRANSFER_TARGETS:-}
+      VOXI_FALLBACK_TEXT: ${VOXI_FALLBACK_TEXT:-Şu anda hizmet veremiyorum. Lütfen daha sonra tekrar deneyin.}
+    ports:
+      # Default stays loopback-only. VOXI_BIND_IP is opt-in for cross-device LAN access;
+      # set it to this host's LAN address (never a public/WAN interface) and restrict the
+      # host firewall to your trusted subnet. Workers remain unpublished.
+      - "${VOXI_BIND_IP:-127.0.0.1}:${VOXI_PORT:-8080}:8080"
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+      tts-ema:
+        condition: service_healthy
+      stt-whisper:
+        condition: service_healthy
+      # Install every pinned model before the API serves, so a fresh clone's
+      # `docker compose up -d` is a complete install. It also gives the two workers
+      # that stay opt-in (antalia, stt-turbo) a dependent, which Compose needs for
+      # `--wait` to accept their exited one-shot provision services.
+      provision-antalia:
+        condition: service_completed_successfully
+      provision-whisper-turbo:
+        condition: service_completed_successfully
+    volumes:
+      # Read-only: the generated worker/master keys and the keyring live here.
+      - secrets:/run/voxi-secrets:ro
+    healthcheck:
+      test: [CMD, python, /app/infra/healthcheck.py, "http://127.0.0.1:8080/readyz"]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 4
+
+  tts-ema:
+    <<: *runtime
+    image: voxi-tts:local
+    build:
+      context: .
+      target: tts
+    environment:
+      <<: *worker-environment
+      VOXI_TTS_PROVIDER: ema-lightning
+      TTS_NORMALIZATION_OWNER: ema_integrated
+      TTS_NORMALIZATION_AMBIGUITY_POLICY: fallback
+      TTS_DEVICE: cpu
+      EMA_MODEL_PATH: /models/ema-lightning
+    # `docker compose up -d` on a fresh clone installs the pinned model first.
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+      provision-ema:
+        condition: service_completed_successfully
+    volumes:
+      - secrets:/run/voxi-secrets:ro
+      - ema-models:/models:ro
+    command: [uvicorn, "voxi.workers.tts:app", --host, "0.0.0.0", --port, "8081", --workers, "1"]
+    healthcheck:
+      test: [CMD, python, /app/infra/healthcheck.py, "http://127.0.0.1:8081/readyz"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 8
+
+  stt-whisper:
+    <<: *runtime
+    image: voxi-stt:local
+    build:
+      context: .
+      target: stt
+    environment:
+      <<: *worker-environment
+      STT_DEVICE: cpu
+      STT_COMPUTE_TYPE: int8
+      WHISPER_MODEL_PATH: /models/whisper-small
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+      provision-whisper:
+        condition: service_completed_successfully
+    volumes:
+      - secrets:/run/voxi-secrets:ro
+      - whisper-models:/models:ro
+    command: [uvicorn, "voxi.workers.stt:app", --host, "0.0.0.0", --port, "8082", --workers, "1"]
+    healthcheck:
+      test: [CMD, python, /app/infra/healthcheck.py, "http://127.0.0.1:8082/readyz"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 8
+
+  stt-whisper-turbo:
+    <<: *runtime
+    # Opt-in quality profile (decision S5): whisper-large-v3-turbo is far heavier
+    # on CPU, so it is never the default. When enabled, the gateway advertises it
+    # in /v1/models and routes `whisper-large-v3-turbo` here; `whisper-small`
+    # keeps serving from stt-whisper. Same image and target as stt-whisper, only
+    # the model path/id differ.
+    profiles: [stt-turbo]
+    image: voxi-stt:local
+    build:
+      context: .
+      target: stt
+    environment:
+      <<: *worker-environment
+      STT_DEVICE: cpu
+      STT_COMPUTE_TYPE: int8
+      WHISPER_MODEL_PATH: /models/whisper-large-v3-turbo
+      WHISPER_MODEL_ID: whisper-large-v3-turbo
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+      provision-whisper-turbo:
+        condition: service_completed_successfully
+    volumes:
+      - secrets:/run/voxi-secrets:ro
+      - whisper-turbo-models:/models:ro
+    command: [uvicorn, "voxi.workers.stt:app", --host, "0.0.0.0", --port, "8084", --workers, "1"]
+    healthcheck:
+      test: [CMD, python, /app/infra/healthcheck.py, "http://127.0.0.1:8084/readyz"]
+      interval: 15s
+      timeout: 10s
+      start_period: 600s
+      retries: 8
+
+  tts-antalia:
+    <<: *runtime
+    profiles: [antalia]
+    image: voxi-antalia:local
+    build:
+      context: .
+      target: antalia
+    environment:
+      <<: *worker-environment
+      VOXI_TTS_PROVIDER: antalia-mini
+      TTS_NORMALIZATION_OWNER: native
+      TTS_NORMALIZATION_AMBIGUITY_POLICY: native
+      TTS_DEVICE: cpu
+      ANTALIA_MODEL_PATH: /models/antalia-mini
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+      provision-antalia:
+        condition: service_completed_successfully
+    volumes:
+      - secrets:/run/voxi-secrets:ro
+      - antalia-models:/models:ro
+    command: [uvicorn, "voxi.workers.tts:app", --host, "0.0.0.0", --port, "8083", --workers, "1"]
+    healthcheck:
+      test: [CMD, python, /app/infra/healthcheck.py, "http://127.0.0.1:8083/readyz"]
+      interval: 15s
+      timeout: 10s
+      start_period: 300s
+      retries: 8
+
+  provision-ema:
+    <<: *runtime
+    # No profile: a fresh `docker compose up -d` must install pinned models itself.
+    image: voxi-tts:local
+    build:
+      context: .
+      target: tts
+    restart: "no"
+    environment:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      # Only needed if a pinned repository is gated (all pinned repos are public
+      # today). Read from the environment at runtime; never baked into an image
+      # and never logged.
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ema-models:/models
+    command: [python, /app/scripts/provision_models.py, --root, /models, --models, ema-lightning]
+
+  provision-whisper:
+    <<: *runtime
+    # No profile: a fresh `docker compose up -d` must install pinned models itself.
+    image: voxi-stt:local
+    build:
+      context: .
+      target: stt
+    restart: "no"
+    environment:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      # Only needed if a pinned repository is gated (all pinned repos are public
+      # today). Read from the environment at runtime; never baked into an image
+      # and never logged.
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - whisper-models:/models
+    command: [python, /app/scripts/provision_models.py, --root, /models, --models, whisper-small]
+
+  provision-whisper-turbo:
+    <<: *runtime
+    # No profile: all pinned models install on a fresh `docker compose up -d`; the
+    # turbo worker itself still needs --profile stt-turbo to run.
+    image: voxi-stt:local
+    build:
+      context: .
+      target: stt
+    restart: "no"
+    environment:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      # Only needed if a pinned repository is gated (all pinned repos are public
+      # today). Read from the environment at runtime; never baked into an image
+      # and never logged.
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - whisper-turbo-models:/models
+    command: [python, /app/scripts/provision_models.py, --root, /models, --models, whisper-large-v3-turbo]
+
+  provision-antalia:
+    <<: *runtime
+    # No profile: all pinned models install on a fresh `docker compose up -d`; the
+    # Antalia worker itself still needs --profile antalia to run.
+    image: voxi-antalia:local
+    build:
+      context: .
+      target: antalia
+    restart: "no"
+    environment:
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      # Only needed if a pinned repository is gated (all pinned repos are public
+      # today). Read from the environment at runtime; never baked into an image
+      # and never logged.
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - antalia-models:/models
+    command: [python, /app/scripts/provision_models.py, --root, /models, --models, antalia-mini]
+
+  secrets:
+    # One-shot first-run bootstrap. Generates the worker/master/local-WebUI keys
+    # and the keyring, and (unless REQUIRE_PROVIDED_CERTS=1) a loopback
+    # self-signed certificate into ./certs. Root is required only to own and
+    # chmod the generated files, so exactly one capability is granted.
+    # Idempotent: an existing file, or an explicit .env value, is never
+    # overwritten — re-running `up -d` cannot rotate a key under a running stack.
+    image: voxi-gateway:local
+    build:
+      context: .
+      target: gateway
+    user: "0:0"
+    restart: "no"
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    # Generating secrets needs no network at all.
+    network_mode: none
+    environment:
+      # Paths and flags only. A GENERATED value never travels through the
+      # environment; operator-provided values are passed through solely so the
+      # script can detect them and defer to them (the gateway and workers already
+      # receive the same values from .env, so this exposes nothing new).
+      VOXI_SECRETS_DIR: /run/voxi-secrets
+      VOXI_CERT_DIR: /certs
+      REQUIRE_PROVIDED_CERTS: ${REQUIRE_PROVIDED_CERTS:-}
+      VOXI_TLS_SAN: ${VOXI_TLS_SAN:-}
+      VOXI_PROXY_BIND_IP: ${VOXI_PROXY_BIND_IP:-127.0.0.1}
+      # Present so the script can detect "the operator already provided this" and
+      # leave it alone; an explicit value always wins over generated material.
+      VOXI_WORKER_API_KEY: ${VOXI_WORKER_API_KEY:-}
+      VOXI_API_KEY: ${VOXI_API_KEY:-}
+      VOXI_API_KEYS_JSON: ${VOXI_API_KEYS_JSON:-}
+      VOXI_WEBUI_KEY: ${VOXI_WEBUI_KEY:-}
+    volumes:
+      - secrets:/run/voxi-secrets
+      - ./certs:/certs
+    command: [python, /app/scripts/bootstrap_secrets.py]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  webui:
+    image: voxi-webui:local
+    build:
+      context: .
+      dockerfile: webui/Dockerfile
+    init: true
+    restart: unless-stopped
+    networks: [speech]
+    volumes:
+      - ./models:/usr/share/nginx/html/models:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:8080/ui/"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  smoke:
+    <<: *runtime
+    profiles: [smoke]
+    image: voxi-smoke:local
+    build:
+      context: .
+      target: smoke
+    restart: "no"
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+    volumes:
+      # Read the generated master key when no .env is present (VOXI_API_KEY wins).
+      - secrets:/run/voxi-secrets:ro
+    environment:
+      VOXI_API_KEY: ${VOXI_SMOKE_API_KEY:-${VOXI_API_KEY:-}}
+
+networks:
+  speech:
+    driver: bridge
+
+volumes:
+  secrets:
+  ema-models:
+  whisper-models:
+  whisper-turbo-models:
+  antalia-models:

@@ -1,0 +1,75 @@
+name: Model-free checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      VOXI_API_KEY: ci-only-audio-key-not-for-deployment-000000
+      VOXI_WORKER_API_KEY: ci-only-worker-key-not-for-deployment-000000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.6.17"
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install base and development dependencies only
+        run: uv sync --locked --extra dev
+      - name: Lint
+        run: uv run ruff check .
+      - name: Typecheck
+        run: uv run mypy src
+      - name: Contract and unit tests without models
+        run: uv run pytest
+      - name: Export OpenAPI and WebSocket frame contracts without launching workers
+        run: uv run python scripts/export_openapi.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: speech-contracts
+          path: packages/contracts/*.json
+          if-no-files-found: error
+
+  # Every Compose combination documented in CONTRIBUTING.md must still parse.
+  # Config validation only: nothing is built, pulled or started (no models, no network).
+  compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Compose files (base + every overlay)
+        run: |
+          docker compose -f compose.yaml config --quiet
+          docker compose -f compose.yaml -f infra/compose.proxy.yaml config --quiet
+          docker compose -f compose.yaml -f infra/compose.offline.yaml config --quiet
+          docker compose -f compose.yaml -f infra/compose.nvidia.yaml --profile antalia --profile stt-turbo config --quiet
+          docker compose -f compose.yaml -f infra/compose.turnstub.yaml config --quiet
+
+  # The studio is part of the shipped image; its typecheck, unit tests and a full
+  # production build run here so a broken frontend cannot merge silently.
+  webui:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci
+        working-directory: webui
+      - name: Unit tests
+        run: npm test
+        working-directory: webui
+      - name: Typecheck + production build
+        run: VITE_MODELS_BASE_URL=/models npm run build
+        working-directory: webui

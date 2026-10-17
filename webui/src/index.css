@@ -1,0 +1,177 @@
+/*
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ * SPDX-FileCopyrightText: 2026 Mustafa Tayyar Çalışkan
+ */
+
+/*
+ * Single CSS entry for the Apeksis WebUI.
+ *
+ * Design language ported from the original studio app: the same tokens (styles.css), the same
+ * Tailwind `@theme inline` token→utility mapping (bg-pane, text-fg-2, border-line,
+ * bg-cini, font-ui, rounded-ui, ...), the same custom utilities (slider, switch)
+ * and animations. There is exactly ONE design system here.
+ *
+ * Note: unlike the original studio app we keep Tailwind Preflight (the merged app still hosts
+ * Voxi panels during the migration); styles.css is imported after it, so the
+ * app's element defaults win where the two overlap.
+ */
+@import "tailwindcss";
+@import "./styles.css" layer(base);
+
+/* The app's tokens (defined in styles.css :root) as Tailwind utilities. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-pane: var(--pane);
+  --color-pane-2: var(--pane-2);
+  --color-raised: var(--raised);
+  --color-raised-hover: var(--raised-hover);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-cini: var(--cini);
+  --color-cini-press: var(--cini-press);
+  --color-cini-wash: var(--cini-wash);
+  --color-cini-glow: var(--cini-glow);
+  --color-firuze: var(--firuze);
+  --color-mercan: var(--mercan);
+  --color-wave: var(--wave);
+  --color-wave-played: var(--wave-played);
+
+  --font-ui: var(--ui);
+  --font-sans: var(--ui);
+
+  --radius-ui: var(--r);
+  --radius-ui-sm: var(--r-sm);
+}
+
+@theme {
+  --animate-rec: rec 1.2s ease-in-out infinite;
+  --animate-rec-ring: rec-ring 1.6s ease-out infinite;
+
+  @keyframes rec {
+    50% {
+      opacity: 0.35;
+    }
+  }
+
+  @keyframes rec-ring {
+    70% {
+      box-shadow: 0 0 0 8px rgba(239, 107, 86, 0);
+    }
+
+    100% {
+      box-shadow: 0 0 0 0 rgba(239, 107, 86, 0);
+    }
+  }
+}
+
+/* Hover as before the move to Tailwind: also on touch screens (a tap shows the
+   transcript's edit tools), not only where a mouse can hover. */
+@custom-variant hover (&:hover);
+
+/* Range input: thin track, white thumb with a blue ring. */
+@utility slider {
+  appearance: none;
+  background: none;
+
+  &::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+  }
+
+  &::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
+    border: 0;
+    border-radius: 50%;
+    appearance: none;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 2.5px var(--cini);
+    transition: transform 0.12s ease;
+  }
+
+  &::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+
+  &::-moz-range-track {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--line);
+  }
+
+  &::-moz-range-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: var(--cini);
+  }
+
+  &::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 0 0 2.5px var(--cini);
+  }
+}
+
+/* Checkbox drawn as an on/off switch. */
+@utility switch {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  border-radius: 9px;
+  appearance: none;
+  background: var(--line);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: background 0.18s ease;
+  cursor: pointer;
+
+  &::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.4, 1);
+  }
+
+  &:checked {
+    background: var(--cini);
+  }
+
+  &:checked::after {
+    transform: translateX(14px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &::after {
+      transition: none;
+    }
+  }
+}
+
+@theme {
+  --animate-busy: busy 1.4s linear infinite;
+
+  @keyframes busy {
+    from {
+      background-position: 200% 0;
+    }
+
+    to {
+      background-position: -200% 0;
+    }
+  }
+}

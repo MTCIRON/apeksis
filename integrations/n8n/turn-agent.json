@@ -1,0 +1,51 @@
+{
+  "name": "Voxi schema 1.0 Turkish acknowledgement agent",
+  "active": false,
+  "nodes": [
+    {
+      "id": "c2ba920b-1ef3-4010-8c81-5f181da12a2e",
+      "name": "Authenticated turn",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "a5ce55da-0c91-4671-9e0e-27a1b60ba76c",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voxi-turn",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "cbe0948a-981d-42d7-8171-c3c4b508211d",
+      "name": "Validate turn and decide speech",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const turn = $input.first().json.body;\nconst object = value => value !== null && typeof value === 'object' && !Array.isArray(value);\nconst ids = ['call_id', 'session_id', 'turn_id', 'correlation_id'];\nconst valid = object(turn) && turn.schema_version === '1.0' && turn.event_type === 'utterance.final' && ids.every(name => typeof turn[name] === 'string' && turn[name].length > 0 && turn[name].length <= 128) && Number.isInteger(turn.generation_id) && turn.generation_id >= 1 && Number.isInteger(turn.sequence) && turn.sequence >= 1 && typeof turn.timestamp === 'string' && !Number.isNaN(Date.parse(turn.timestamp)) && typeof turn.transcript === 'string' && turn.transcript.trim().length > 0 && turn.transcript.length <= 10000 && ['tr', 'tr-TR'].includes(turn.language) && object(turn.context) && object(turn.caller);\nif (!valid) return [{json: {status: 422, response: {error: 'Invalid Voxi schema 1.0 utterance.final turn'}}}];\n// Business policy lives only here: acknowledge supplied utterance; no gateway prompt or LLM.\n// Long utterances get a short acknowledgement, never truncated quoted speech.\n// Stateless deterministic response makes duplicate deliveries idempotent. Do not add side effects\n// without a durable store keyed by call_id:turn_id (execution retries/concurrent calls included).\nconst text = turn.transcript.length <= 4000 ? 'İletiniz alındı. ' + turn.transcript.trim() : 'İletiniz alındı. Mesajınız için teşekkür ederim.';\nreturn [{json: {status: 200, response: {schema_version: '1.0', action: 'speak', text, language: 'tr-TR', voice: 'ema-tr', metadata: {policy: 'turkish-acknowledgement'}, idempotency_key: turn.call_id + ':' + turn.turn_id}}}];"
+      }
+    },
+    {
+      "id": "565de194-357d-4dce-bb8f-321b668aa62e",
+      "name": "Return schema 1.0 action",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.3,
+      "position": [740, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.response }}",
+        "options": {"responseCode": "={{ $json.status }}"}
+      }
+    }
+  ],
+  "connections": {
+    "Authenticated turn": {"main": [[{"node": "Validate turn and decide speech", "type": "main", "index": 0}]]},
+    "Validate turn and decide speech": {"main": [[{"node": "Return schema 1.0 action", "type": "main", "index": 0}]]}
+  },
+  "settings": {"executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "none"},
+  "pinData": {},
+  "tags": []
+}

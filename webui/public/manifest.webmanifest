@@ -1,0 +1,16 @@
+{
+  "name": "Apeksis Ses Çalışma Alanı",
+  "short_name": "Apeksis",
+  "description": "Türkçe ses üretimi, transkript ve altyazı uygulaması — tarayıcıda çalışan bütünleşik stüdyo.",
+  "start_url": "/ui/",
+  "scope": "/ui/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14171a",
+  "theme_color": "#14171a",
+  "lang": "tr",
+  "icons": [
+    { "src": "/ui/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/ui/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
