@@ -1053,6 +1053,38 @@ Kullanıcı (yığındaki Merged-AI-NEW gözden geçirmecisi) `compose.lan-stack
 
 Red edilenler: none net — hepsi makul.
 
+### 8.5.16 Ajan yönlendirme kütüphanesi (2026-10-17, docs-only)
+
+**Talep:** kullanıcı tarafındaki yığın, AI ajanları (Cursor/Claude/omp) için bir operasyonel
+kütüphane (agent-docs/APEKSIS_VOICE_STACK.md runbook'u, MODEL_STORAGE_AND_DOWNLOAD_RULES,
+deploy_to_server.* betikleri, AGENTS.md indeksi) hazırladı; "uyumlu ne gerekiyorsa yapalım".
+
+**Karar:** operasyonel kütüphaneyi kendi yığınlarında tutarlar; bu publik repoda dürüst
+standart karşılıklarını kanonik dokümanlara gömdüm (çift bakım + drift riski yerine tek
+kaynak):
+
+1. `docs/troubleshooting.md` +9 satır: 421/403 guard semptomları + üç REFUSING başlangıç
+   iletisi + beklenmedik keyless-LAN + stale `/ui/` bundle (webui recreate → proxy restart
+   sıralaması) + port çakışması + sabit container_name DNS için `VOXI_JOIN_NETWORK`
+   koşulu + `VOXI_MODELS_DIR` host-tree UID 10001 hazırlığı.
+2. `docs/deployment.md` §"Updating an existing deployment" (YENİ bölüm): checkout bir git
+   clone olduğu için update = `git pull` (veya tag checkout) + build + up --wait; sıralama
+   kuralları (bundle hash → recreate webui → restart proxy; image-rebuild ≠
+   container-recreate; model volume'ları asla silme; key rotation akışı) ve
+   arşiv-gibi kopyalama akışının checkout ÜZERİNE uygulanmaması uyarısı (git metadata
+   silinir, yerel değişiklikler sessizce ezilir — yığın-özel runbook/betikler checkout
+   dışında veya untracked tutulmalı).
+3. `AGENTS.md` "Agent quick pointers" bölümü: gelecekteki her ajanı LAN-injection
+   invariants, stack-merge/update prosedürleri, troubleshooting tablosu ve kanıtlara
+   yönlendirir (kullanıcı tarafındaki tetikleyici konseptinin kanonik karşılığı).
+4. `.env.example` — `VOXI_MODELS_DIR` / `VOXI_JOIN_NETWORK` (yalnız overlay tüketir,
+   standalone deployment boş bırakır) açıklamalarıyla eklendi.
+
+**Doğrulama:** docs-only → canlı doğrulama gerekmez (§8.5.11 emsali); push sonrası CI aynı
+kapıları koşar. cp-r akışı uyarısı kullanıcıya ayrıca iletildi (applied kopya checkout
+olursa metadata kaybı).
+
+
 
 
 **Kalan (R4 dışı):** dört Python imajının yeniden derlenmesi (§8.5.6'daki erteleme sürüyor),

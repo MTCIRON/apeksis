@@ -31,7 +31,21 @@
   (`VOXI_MODELS_DIR`, `VOXI_JOIN_NETWORK`, `VOXI_PROXY_BIND_IP`, `VOXI_PROXY_PORT=8102`).
   Documented in `docs/deployment.md` §"Merging into an existing Compose stack" (including
   the UID `10001` host-preparation `mkdir`/`chown` step) and `.env.example` (two new
-  proxy envs).
+  proxy envs and the two overlay-only vars: `VOXI_MODELS_DIR`, `VOXI_JOIN_NETWORK`).
+- Documentation for autonomous agents · **The operational library the operator's stack
+  runbook expects is now canonical in this repo.** `docs/troubleshooting.md` gains the
+  proxy-era symptom table (421 DNS-rebinding cut, 403 cross-site, all three entrypoint
+  refusal messages, keyless-on-LAN surprise, stale `/ui/` bundle after a frontend
+  rebuild with the recreate-then-restart ordering, published-port conflicts, fixed
+  container-name DNS requirements, `VOXI_MODELS_DIR` UID 10001 preparation);
+  `docs/deployment.md` gains §"Updating an existing deployment" (git-pull based update
+  flow, bundle-hash recreate ordering, image-rebuild ≠ container-recreate,
+  never-delete-model-volumes, and a warning that archive-style copy-updates must not be
+  performed onto a checkout); `AGENTS.md` gains an "Agent quick pointers" section routing
+  any future AI agent (Cursor, Claude, omp, ...) straight to the LAN-injection
+  invariants, the stack-merge/update procedures, the troubleshooting table and the
+  evidence records. Documentation-only change: no behavior change, no live verification
+  required (CI runs the same gates).
 
 ## 0.3.0 — first public release (2026-10-17)
 

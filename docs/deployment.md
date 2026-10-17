@@ -130,6 +130,42 @@ overlay header uses `8102` because 8443 is commonly taken by other gateways), an
 your central cert directory there if your storage standard requires it. The OpenWebUI
 audio integration envs live in `integrations/openwebui/audio.env.example`.
 
+### Updating an existing deployment
+
+The checkout on the server is a `git` clone, so an update is a pull, not a copy:
+
+```sh
+cd /path/to/apeksis            # the existing checkout
+git pull                       # or: git fetch && git checkout v0.4.0 (a tagged release)
+docker compose -f compose.yaml -f infra/compose.proxy.yaml build
+docker compose -f compose.yaml -f infra/compose.proxy.yaml up -d --wait --wait-timeout 900
+```
+
+Ordering rules worth memorizing:
+
+- **A frontend build changes the bundle hash.** After the `webui` image is rebuilt, the
+  bundle identity on disk changes; recreate `webui` and then **restart `proxy`**
+  (`up -d --force-recreate --no-deps webui && docker compose ... restart proxy`) — a
+  skipped restart serves the stale asset list and a blank `/ui/`.
+- **Rebuilding an image does NOT recreate its container.** `docker compose up -d`
+  recreates only when the definition changed (env, image id); otherwise the old
+  container keeps running the old image. For a guaranteed cut-over after a build add
+  `--force-recreate` for the affected services deliberately, then `restart proxy` if any
+  upstream container was recreated.
+- **Pinned models are integrity-checked, never re-downloaded.** Provisioning is
+  idempotent: finished files are verified by SHA-256 against immutable revisions, so an
+  update does not touch model volumes. Wipe model content only for a deliberate
+  reprovision, never to "reset".
+- `.env` is never overwritten by pulling generated keys; nothing merges or migrates. To
+  rotate a key use `bootstrap.ps1 -RotateKey` (Windows) or the documented manual flow —
+  see [Local secrets](#local-secrets-no-env-required).
+
+For a deployment that borrows from a git-archive-style copy instead (`git clone` into a
+temp dir + copy the tree over), the copy **must not be the checkout itself**: a copy over
+an existing checkout destroys its git metadata and silently includes or clobbers local
+modifications — keep stack-local runbooks, deploy scripts and consuming-stack overlay
+files either outside the Apeksis checkout or as untracked paths.
+
 ## Build, install models, start
 
 From a fresh clone, one command installs and starts everything — pinned models, local secrets and the

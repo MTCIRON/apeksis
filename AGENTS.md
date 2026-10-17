@@ -77,3 +77,17 @@ docker compose -f compose.yaml -f infra/compose.turnstub.yaml config --quiet
 | `integrations/` | n8n workflows, OpenWebUI/Hermes guides, nginx README |
 | `packages/contracts/` | Exported OpenAPI 3.1 + WebSocket frame + n8n action schemas |
 | `docs/` | Public design/deployment records; `docs/adr/` decisions; internal process notes stay in gitignored `docs/internal/` |
+
+## Agent quick pointers
+
+- LAN / trusted-LAN keyless access: `integrations/nginx/README.md` (§3 Trusted-LAN
+  injection) — the refusal invariants and the explicit opt-in envs; identity reasoning in
+  [docs/adr/0006-turnkey-local-identity.md](docs/adr/0006-turnkey-local-identity.md).
+- Operating this stack inside another Compose deployment (central model tree, external
+  network join, fixed container names, published-LAN bind):
+  `infra/compose.lan-stack.example.yaml` + `docs/deployment.md` §"Merging into an
+  existing Compose stack" and §"Updating an existing deployment".
+- Symptom→action table (421/403, proxy refusals, permissions, port and Docker DNS
+  naming): [docs/troubleshooting.md](docs/troubleshooting.md).
+- Honest-evidence records for every verified gate:
+  [docs/verification.md](docs/verification.md).
