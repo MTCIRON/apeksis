@@ -16,6 +16,10 @@ jobs:
       VOXI_WORKER_API_KEY: ci-only-worker-key-not-for-deployment-000000
     steps:
       - uses: actions/checkout@v4
+      # The audio codec tests exercise the real ffmpeg encode/decode paths
+      # (src/voxi/audio.py). ubuntu-24.04 runners do not ship the binary.
+      - name: Install FFmpeg
+        run: sudo apt-get update --quiet && sudo apt-get install --yes --no-install-recommends ffmpeg
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.6.17"
