@@ -1,5 +1,21 @@
 # Initial milestone verification
 
+## Trusted-LAN injection (post-release, 2026-10-17)
+
+Opt-in LAN keyless mode (`VOXI_ALLOW_LAN_INJECT`) + stack-merge overlay, all on the
+same i7-11800H host. New evidence:
+
+| Check | Observed result |
+|---|---|
+| Static render safety | busybox `sh -n` parse OK; inside throwaway `nginx:1.27-alpine` the real entrypoint (exec stubbed) rendered all three modes and `nginx -t` succeeded in each (`lan-inject` map shows the RFC1918 regex + extra entries with dedupe; malformed `VOXI_PROXY_EXTRA_HOSTS` token and inject-without-LAN-bind refusals both exercised, inert-flag note exercised) |
+| Python suite | `ruff check .` clean, `pytest` **161 passed / 4 skipped** (ruff first flagged one E501 in the new smoke mode code; shortened, re-run clean) |
+| WebUI suite | vitest **83 passed** (10 files; 2 new `lan-inject` parser/label cases); production build OK, new bundle `assets/index-HRjqFXOa.js` **476,694 bytes** |
+| Compose matrix | 5 CI combinations **plus** the new `infra/compose.lan-stack.example.yaml` (base+proxy+example, external-network reference resolves at config stage): **6/6 `config --quiet` exit 0** |
+| Live LAN-inject round | proxy recreated with `VOXI_PROXY_BIND_IP=192.168.16.87`, `VOXI_ALLOW_LAN_INJECT=true`, `VOXI_PROXY_EXTRA_HOSTS=192.168.16.87`; `smoke_proxy.py --mode lan-inject` **PASS** — foreign Host **421**, public cross-site Origin **403**, private-range Origin **200** (relaxed), keyless `/v1/models` **200** (injected — asserted openly), `runtime.json` `lan-inject/needKey=false` |
+| Live revert round | env dropped, proxy recreated from `.env` defaults; loopback `--mode loopback` smoke **PASS** (all five original assertions identical to pre-change) — default behavior untouched |
+| Live webui ship | `voxi-webui:local` rebuilt, `--force-recreate --no-deps webui` + `restart proxy`; `/ui/` 200 serving the **new** bundle `index-HRjqFXOa.js` (200 / 476,694 B), `runtime.json` loopback intact, final loopback smoke PASS |
+| Not measured | real second-device browser access over Wi-Fi (no second device in this session — the guard semantics are proven by script-level HTTP, browser rendering assumed equal); IPv6 ULA range aliases are not covered by the private-range patterns (documented limitation) |
+
 ## 0.3.0 first-public-release gates (2026-10-17)
 
 Run on the same i7-11800H host above, immediately before the initial public commit. New evidence:

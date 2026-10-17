@@ -28,10 +28,12 @@ is never overridden by generated material.
 The proxy then injects a **separate, revocable** local key (`VOXI_WEBUI_KEY`, stored as
 `webui-local` in `VOXI_API_KEYS_JSON`, never the master key) for same-origin `/v1`
 calls. This is safe only because the entrypoint binds **loopback** and refuses to start
-keyless injection against any other address; on top of that the vhost rejects a foreign
-`Host` (→ **421**, cuts DNS rebinding) and a cross-site request (`Origin` /
-`Sec-Fetch-Site`, → **403**) before injecting, and advertises **no CORS**. The injected
-key is never written to any log. See [ADR 0006](../../docs/adr/0006-turnkey-local-identity.md)
+keyless injection against any other address — **unless the operator explicitly opt-ed in
+with `VOXI_ALLOW_LAN_INJECT=true`** (trusted-LAN mode, §3 below); on top of that the vhost
+rejects a foreign `Host` (→ **421**, cuts DNS rebinding) and a cross-site request
+(`Origin` / `Sec-Fetch-Site`, → **403**) before injecting, and advertises **no CORS**. The
+injected key is never written to any log. See
+[ADR 0006](../../docs/adr/0006-turnkey-local-identity.md)
 and [ADR 0007](../../docs/adr/0007-compose-native-bootstrap.md) (Compose-native first-run
 secrets/TLS).
 
@@ -39,9 +41,14 @@ secrets/TLS).
 > multi-tenant host, turn local auto-identity off (`VOXI_PROXY_INJECT=false`) and require
 > each client to send its own key — use the LAN flow below.
 
-The remaining sections describe the **LAN / cross-device** path (`-ExposeLan`), where
-injection is off, the loopback guards do not apply, and every client supplies its own
-bearer over TLS.
+There are two explicit **LAN** paths, both opt-in and both refusing to start on any weaker
+default:
+
+1. **Per-client key (`VOXI_PROXY_INJECT=false`)** — injection is off, the loopback guards
+   do not apply, and every client supplies its own bearer over TLS (§1–§4).
+2. **Trusted-LAN injection (`VOXI_PROXY_INJECT=true` + `VOXI_ALLOW_LAN_INJECT=true`)** —
+   injection stays on and the guards stay on, but the Host/origin allowlists additionally
+   accept the RFC1918 private ranges plus `VOXI_PROXY_EXTRA_HOSTS` entries (§3).
 
 ## Why Caddy's HTTPS failed here
 
@@ -99,7 +106,52 @@ Do **not** forward 8443 to WAN. Verify locally:
 curl.exe -k https://127.0.0.1:8443/healthz
 ```
 
-## 3. Point OpenWebUI at the HTTPS base URL
+## 3. Trusted-LAN injection (explicit opt-in)
+
+Concurrency-safe LAN use of the **keyless** studio: the same-browser rebinding guard is
+relaxed to the network you name, injection stays on, and **every device on that network
+can call the gateway without a key**. Enable it only where LAN membership IS the trust
+boundary (a homelab / on-prem network you administer). The entrypoint refuses to start
+any LAN+inject combination without this flag, so ordinary deployments keep the loopback
+guarantee.
+
+```dotenv
+VOXI_PROXY_INJECT=true
+VOXI_PROXY_BIND_IP=10.0.0.231      # this server's LAN address
+VOXI_PROXY_PORT=8102               # published port (any free port)
+VOXI_ALLOW_LAN_INJECT=true
+VOXI_PROXY_EXTRA_HOSTS=10.0.0.231  # plain host names / IPs, comma separated
+REQUIRE_PROVIDED_CERTS=1           # bring your own SAN certificate (§1)
+```
+
+Mechanics:
+
+- The Host allowlist gains the RFC1918 private-range patterns
+  (`10.*`, `192.168.*`, `172.16/12`) plus each extra host — so a browser at
+  `https://10.0.0.231:8102/ui/` is same-site while a foreign/attacker domain
+  resolves... nothing: a **public** Host still hits the **421** rebinding cut, and a
+  cross-site request still hits **403**. `Origin` gets the mirrored patterns.
+- Extra host entries are validated hard (letters/digits/dots/hyphens only; no leading,
+  trailing or doubled dots) because they are interpolated into the nginx `map` blocks —
+  a malformed value **refuses to start** instead of silently changing the config.
+- Dedup: entries that would duplicate an already-allowed loopback literal are skipped,
+  so the rendered map stays parse-clean.
+- TLS stays mandatory in this mode; the loopback-generated certificate does list
+  `VOXI_PROXY_BIND_IP` in its SAN when it was generated with that env set, otherwise
+  browsers show a name-mismatch warning (curl `-k` is not a browser and still works).
+- `/ui/runtime.json` reports `mode: "lan-inject", needKey: false, autoIdentity: true`,
+  and the WebUI Settings badge says so explicitly.
+- Verify with the proxy smoke in the new mode:
+
+```powershell
+python scripts/smoke_proxy.py --url https://10.0.0.231:8102 --mode lan-inject --insecure
+```
+
+  The smoke **asserts the risk out loud**: a keyless LAN request must return 200 (the
+  injected identity serves it), foreign Host stays 421, public cross-site origin stays
+  403, and `runtime.json` must say `lan-inject`.
+
+## 4. Point OpenWebUI at the HTTPS base URL
 
 ```
 AUDIO_TTS_OPENAI_API_BASE_URL=https://<PC-LAN-IP>:8443/v1
@@ -108,7 +160,7 @@ AUDIO_STT_OPENAI_API_BASE_URL=https://<PC-LAN-IP>:8443/v1
 
 Model/voice/key unchanged (`ema-lightning` / `ema-tr` / your `VOXI_API_KEY`).
 
-## 4. Make the client TRUST the cert (this is the step that "makes https work")
+## 5. Make the client TRUST the cert (this is the step that "makes https work")
 
 A self-signed cert is rejected unless trusted, which is what makes calls "erişilemedi":
 
@@ -130,7 +182,7 @@ mic you must also make OpenWebUI a secure context:
 
 - Easiest, no cert: on the device with the mic, open OpenWebUI at `http://localhost:<port>`.
   `localhost` is always a secure context. OpenWebUI's backend still calls Voxi over the LAN
-  (its own TLS trust handled in step 4).
+  (its own TLS trust handled in step 5).
 - Or serve **OpenWebUI** over HTTPS the same way (put nginx/TLS in front of it on its device)
   and open it by its `https://` URL.
 
@@ -170,6 +222,8 @@ in that browser's localStorage.
 
 The `nginx:1.27-alpine` proxy identity guards have been exercised against this stack with
 `scripts/smoke_proxy.py` (loopback 421/403, runtime.json, no-CORS, config `0600`, no key in
-logs; startup refusal on inject+non-loopback and on missing cert). OpenWebUI UI setup,
+logs; startup refusal on inject+non-loopback and on missing cert; trusted-LAN injection:
+foreign/host public guards still 421/403, private-range origin accepted, `lan-inject`
+runtime.json, `nginx -t` over all three rendered modes). OpenWebUI UI setup,
 browser autoplay/decoding and microphone capture remain operator-verified. The Voxi
 WebSocket transports (ADR 0005) are custom client protocols OpenWebUI does not speak.

@@ -8,7 +8,7 @@
 // requests or requires a key, so a user who moves to LAN mode is not left
 // staring at an unexplained 401.
 
-export type RuntimeMode = "loopback" | "lan";
+export type RuntimeMode = "loopback" | "lan" | "lan-inject";
 
 export interface RuntimeStatus {
   mode: RuntimeMode;
@@ -25,7 +25,7 @@ export function parseRuntimeStatus(raw: unknown): RuntimeStatus {
     throw new Error("runtime status: not an object");
   }
   const o = raw as Record<string, unknown>;
-  if (o.mode !== "loopback" && o.mode !== "lan") {
+  if (o.mode !== "loopback" && o.mode !== "lan" && o.mode !== "lan-inject") {
     throw new Error(`runtime status: unknown mode ${String(o.mode)}`);
   }
   return {
@@ -39,6 +39,12 @@ export function parseRuntimeStatus(raw: unknown): RuntimeStatus {
 export function describeRuntimeStatus(status: RuntimeStatus): { tone: "ok" | "warn"; text: string } {
   if (status.mode === "loopback" && status.autoIdentity) {
     return { tone: "ok", text: "Bu kurulum yerel otomatik kimlik kullanıyor — anahtar girmenize gerek yok." };
+  }
+  if (status.mode === "lan-inject" && status.autoIdentity) {
+    return {
+      tone: "ok",
+      text: "Bu kurulum güvenilir LAN'da otomatik kimlik kullanıyor — anahtar girmenize gerek yok.",
+    };
   }
   return { tone: "warn", text: "Bu kurulum anahtar istiyor — aşağıdaki API anahtarınızı girin." };
 }

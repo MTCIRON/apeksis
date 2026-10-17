@@ -87,11 +87,27 @@ services:
       VOXI_SECRETS_DIR: /run/voxi-secrets
       # When 1, a certificate this project generated itself is refused.
       REQUIRE_PROVIDED_CERTS: ${REQUIRE_PROVIDED_CERTS:-}
+      # Trusted-LAN injection (explicit opt-in; see integrations/nginx/README.md):
+      # when VOXI_ALLOW_LAN_INJECT=true, the entrypoint allows keyless injection
+      # on a NON-loopback bind instead of refusing. Injection and the guards stay
+      # on, but the Host/origin allowlists gain the RFC1918 private ranges plus
+      # every VOXI_PROXY_EXTRA_HOSTS entry — which means any device on that
+      # network can use the gateway WITHOUT a key. Only set on a trusted LAN.
+      VOXI_ALLOW_LAN_INJECT: ${VOXI_ALLOW_LAN_INJECT:-}
+      # Comma-separated plain host names/IPs (letters/digits/dots/hyphens only)
+      # accepted as same-site when VOXI_ALLOW_LAN_INJECT=true, e.g. your server's
+      # LAN address or its docker network alias ("10.0.0.231,nas.lan").
+      VOXI_PROXY_EXTRA_HOSTS: ${VOXI_PROXY_EXTRA_HOSTS:-}
     ports:
-      # Loopback by default => keyless local identity is sound (same-host only). To
-      # reach the console from another LAN device, set VOXI_PROXY_BIND_IP to a LAN
-      # address AND VOXI_PROXY_INJECT=false; the entrypoint refuses any other combo.
-      # Never forward this port to WAN. TLS is enforced in both modes.
+      # Loopback by default => keyless local identity is sound (same-host only).
+      # Two LAN paths exist, both explicit:
+      #   VOXI_PROXY_INJECT=false      -> per-client keys over TLS (entrypoint
+      #                                   keeps guards off), any bind allowed;
+      #   VOXI_PROXY_INJECT=true AND
+      #   VOXI_ALLOW_LAN_INJECT=true   -> trusted-LAN injected mode (the
+      #                                   entrypoint refuses the combo without
+      #                                   the explicit allow flag).
+      # Never forward this port to WAN. TLS is enforced in all modes.
       - "${VOXI_PROXY_BIND_IP:-127.0.0.1}:${VOXI_PROXY_PORT:-8443}:8443"
     volumes:
       # Rendered config lives inside the container (may embed a bearer); mount only

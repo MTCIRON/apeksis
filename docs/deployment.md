@@ -59,10 +59,13 @@ What it sets up and why it is safe:
   `Sec-Fetch-Site: cross-site`) with **403**, **before** injecting anything; it never
   advertises CORS. Same-origin WebUI is unaffected.
 - **Entrypoint guard.** `integrations/nginx/voxi-entrypoint.sh` refuses to start when
-  injection is on but `VOXI_PROXY_BIND_IP` is not loopback, or when TLS material is
-  absent — so editing `.env` by hand cannot bypass the invariant. TLS is mandatory in
-  both modes; `-ExposeLan` therefore requires the certificate flow in
-  [integrations/nginx/README.md](../integrations/nginx/README.md).
+  injection is on but `VOXI_PROXY_BIND_IP` is not loopback — **unless the operator
+  explicitly set `VOXI_ALLOW_LAN_INJECT=true`** (trusted-LAN injected mode: guards stay
+  on and additionally accept the RFC1918 private ranges plus `VOXI_PROXY_EXTRA_HOSTS`;
+  every device on that network can then use the gateway without a key) — or when TLS
+  material is absent — so editing `.env` by hand cannot bypass the invariant. TLS is
+  mandatory in all modes; `-ExposeLan` and trusted-LAN injection therefore require the
+  certificate flow in [integrations/nginx/README.md](../integrations/nginx/README.md).
 - **Generated vs provided TLS.** A missing pair is generated once (SANs: `localhost`,
   `127.0.0.1`, `::1`, plus `VOXI_PROXY_BIND_IP` when it is not loopback and any
   `VOXI_TLS_SAN` entries) and marked with `certs/.generated-by-voxi`. The published bind
@@ -75,20 +78,42 @@ What it sets up and why it is safe:
   root-owned in the `voxi-secrets` volume — see
   [Local secrets](#local-secrets-no-env-required). Keys are never printed except via
   `-ShowKey`.
-- **Status, honestly.** The proxy serves `/ui/runtime.json` (`loopback`/`lan`,
-  `needKey`, `autoIdentity`) — a public static file outside the `/v1` contract — so the
-  WebUI Settings screen shows whether this install auto-identifies or needs a key.
+- **Status, honestly.** The proxy serves `/ui/runtime.json` (`loopback` / `lan` /
+  `lan-inject`, `needKey`, `autoIdentity`) — a public static file outside the `/v1`
+  contract — so the WebUI Settings screen shows whether this install auto-identifies or
+  needs a key.
 
 Verify the guards end-to-end against a running proxy:
 
 ```sh
 python scripts/smoke_proxy.py --url https://127.0.0.1:8443 --mode loopback --insecure
 python scripts/smoke_proxy.py --url https://<lan-ip>:8443 --mode lan --key <VOXI_API_KEY> --insecure
+python scripts/smoke_proxy.py --url https://<lan-ip>:8102 --mode lan-inject --insecure
 ```
 
 **Shared machines:** loopback trust is same-*host*, not same-*user* trust — another
 local user/process can reach the keyless port. On any shared or multi-tenant host,
 disable local auto-identity (`VOXI_PROXY_INJECT=false`) and require per-client keys.
+
+### Merging into an existing Compose stack
+
+Everything above composes with an environment where other services already run. The
+reviewed template overlay `infra/compose.lan-stack.example.yaml` carries the three
+capabilities: publishing the proxy on a LAN address in trusted-LAN injected mode, serving
+models from a central host tree at `/opt/ai-models/voxi` instead of named volumes, and
+joining the consuming stack's network so OpenWebUI-style peers reach
+`http://gateway:8080/v1` by service DNS. Load it LAST, load all three files always, and
+supply the expected env values in the consuming stack's `.env` (documented at the top of
+that file).
+
+```sh
+docker compose -f compose.yaml -f infra/compose.proxy.yaml \
+               -f infra/compose.lan-stack.example.yaml config --quiet
+```
+
+The OpenWebUI audio integration envs live in `integrations/openwebui/audio.env.example`;
+`VOXI_CPU_THREADS` caps each CPU worker's thread pool on big-core servers (e.g. `8` on a
+48-core/96-thread machine is fine — per-worker, not per-process).
 
 ## Build, install models, start
 

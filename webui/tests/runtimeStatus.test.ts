@@ -23,6 +23,11 @@ describe("parseRuntimeStatus", () => {
     expect(s.needKey).toBe(true);
   });
 
+  it("accepts the trusted-LAN injected shape", () => {
+    const s = parseRuntimeStatus({ mode: "lan-inject", needKey: false, autoIdentity: true });
+    expect(s).toEqual({ mode: "lan-inject", needKey: false, autoIdentity: true });
+  });
+
   it("coerces missing booleans to false rather than undefined", () => {
     const s = parseRuntimeStatus({ mode: "lan" });
     expect(s.needKey).toBe(false);
@@ -50,5 +55,12 @@ describe("describeRuntimeStatus", () => {
     const d = describeRuntimeStatus({ mode: "lan", needKey: true, autoIdentity: false });
     expect(d.tone).toBe("warn");
     expect(d.text).toContain("anahtar");
+  });
+
+  it("tells a trusted-LAN injected install it needs no key", () => {
+    const d = describeRuntimeStatus({ mode: "lan-inject", needKey: false, autoIdentity: true });
+    expect(d.tone).toBe("ok");
+    expect(d.text).toContain("otomatik kimlik");
+    expect(d).not.toEqual(describeRuntimeStatus({ mode: "loopback", needKey: false, autoIdentity: true }));
   });
 });

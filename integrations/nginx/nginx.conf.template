@@ -2,8 +2,12 @@
 # Voxi TLS reverse proxy — RENDERED TEMPLATE.
 #
 # This file is NOT nginx config as-is: /etc/nginx/voxi-entrypoint.sh substitutes
-# exactly three variables (${VOXI_INJECT_ON}, ${VOXI_INJECT_AUTH},
-# ${VOXI_RUNTIME_JSON}) via `sed` and writes the result to
+# five variables with `envsubst` (the three identity ones documented below, plus
+# two trusted-LAN allow-list slots named after the shell variables
+# VOXI_LAN_HOST_ALLOW / VOXI_LAN_ORIGIN_ALLOW — deliberately written here
+# WITHOUT their text formats, because every verbatim token in this comment is
+# itself substituted at render time with that variable's value, and those two
+# values are multi-line) and writes the result to
 # /etc/nginx/conf.d/default.conf (mode 0600, root-only, because in keyless mode
 # it embeds a bearer). The conf.d file is included at `http{}` level by the stock
 # nginx.conf, so the `map` and `log_format` blocks below are valid here.
@@ -44,14 +48,14 @@ map $host $voxi_host_bad {
     127.0.0.1  0;
     ::1        0;
     "[::1]"    0;
-}
+${VOXI_LAN_HOST_ALLOW}}
 
 # --- Cross-site signals. Only our own loopback origins are considered "same". ---
 map $http_origin $voxi_origin_bad {
     default                                                    1;
     ""                                                         0;
     "~^https?://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?$"   0;
-}
+${VOXI_LAN_ORIGIN_ALLOW}}
 map $http_sec_fetch_site $voxi_secfetch_bad {
     default      0;
     cross-site   1;

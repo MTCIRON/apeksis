@@ -16,6 +16,11 @@ Run against a LAN bring-up (per-client key required, guards off):
     python scripts/smoke_proxy.py --url https://<lan-ip>:8443 \
         --mode lan --key <VOXI_API_KEY> --insecure
 
+Run against a trusted-LAN injected bring-up (VOXI_ALLOW_LAN_INJECT=true, guards
+relaxed to private ranges + extra hosts, injection stays on):
+
+    python scripts/smoke_proxy.py --url https://<lan-ip>:8443 --mode lan-inject --insecure
+
 Use --no-upstream when only the proxy is running (no gateway): the /v1 lines then
 expect 502 (forwarded) instead of a gateway status, while every guard assertion still
 applies because the reject happens before the upstream hop.
@@ -153,10 +158,57 @@ def check_lan(conn, host: str, prefix: str, key: str | None, upstream: bool) -> 
     return notes
 
 
+def check_lan_inject(conn, host: str, prefix: str, upstream: bool) -> list[str]:
+    notes: list[str] = []
+    base_headers = {"Host": host}
+
+    # 1) The DNS-rebinding cut MUST stay: a foreign (public) Host is still 421.
+    #    Only private-range/extra-host Hosts were added to the allowlist.
+    code, _ = _status(conn, "GET", f"{prefix}/v1/models", {"Host": "evil.example"})
+    if code != 421:
+        raise GuardCheckError(f"trusted-LAN: foreign Host expected 421, got {code}")
+    notes.append("Host=evil.example -> 421 (foreign host still refused)")
+
+    # 2) Cross-site origin via a PUBLIC origin must still be 403.
+    code, _ = _status(conn, "GET", f"{prefix}/v1/models", {**base_headers, "Origin": "https://evil.example"})
+    if code != 403:
+        raise GuardCheckError(f"trusted-LAN: public cross-site Origin expected 403, got {code}")
+    notes.append("Origin=https://evil.example -> 403 (cross-site still refused)")
+
+    # 3) A private-range origin is now accepted as same-site (the relaxation).
+    code, _ = _status(conn, "GET", f"{prefix}/v1/models", {**base_headers, "Origin": "https://10.11.12.13:9300"})
+    if code in (403, 421):
+        raise GuardCheckError(f"trusted-LAN: private-range Origin must be allowed, got {code}")
+    notes.append(f"Origin=https://10.11.12.13:9300 -> {code} (private range accepted)")
+
+    # 4) THE OPEN RISK, asserted: a keyless request from this network gets the
+    #    injected identity (loopback behavior, now on the LAN). This test exists
+    #    so the operator SEES it working rather than discovers it in production.
+    code, _ = _status(conn, "GET", f"{prefix}/v1/models", base_headers)
+    if upstream:
+        if code != 200:
+            raise GuardCheckError(f"trusted-LAN: keyless request expected injected 200, got {code}")
+        notes.append("keyless /v1/models -> 200 (injection serves LAN without a key — by design)")
+    elif code not in (200, 502, 504):
+        notes.append(f"trusted-LAN keyless /v1/models expected forward, got {code}")
+    else:
+        notes.append(f"keyless /v1/models -> {code} (guard passed through; no upstream)")
+
+    # 5) runtime.json must report the new mode honestly.
+    code, headers = _status(conn, "GET", f"{prefix}/ui/runtime.json", base_headers)
+    if code != 200:
+        raise GuardCheckError(f"runtime.json expected 200, got {code}")
+    runtime = json.loads(headers["__body__"])
+    if runtime.get("mode") != "lan-inject" or runtime.get("needKey") is not False:
+        raise GuardCheckError(f"runtime.json not lan-inject/keyless: {runtime}")
+    notes.append("runtime.json -> lan-inject/needKey=false")
+    return notes
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--url", default="https://127.0.0.1:8443", help="proxy base URL")
-    parser.add_argument("--mode", choices=["loopback", "lan"], default="loopback")
+    parser.add_argument("--mode", choices=["loopback", "lan", "lan-inject"], default="loopback")
     parser.add_argument("--key", default=None, help="client API key (LAN 200 check)")
     parser.add_argument(
         "--insecure", action="store_true", help="skip TLS verification (self-signed)"
@@ -171,6 +223,8 @@ def main() -> int:
     try:
         if args.mode == "loopback":
             notes = check_loopback(conn, host, prefix, upstream)
+        elif args.mode == "lan-inject":
+            notes = check_lan_inject(conn, host, prefix, upstream)
         else:
             notes = check_lan(conn, host, prefix, args.key, upstream)
     except (GuardCheckError, OSError, http.client.HTTPException) as exc:

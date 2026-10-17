@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+- Trusted-LAN injection · **Keyless studio use on a private network is now an explicit,
+  opt-in mode.** Setting `VOXI_ALLOW_LAN_INJECT=true` stops the entrypoint from refusing
+  injection on a non-loopback bind: guards stay on, and
+  the Host/origin allowlists additionally accept the RFC1918 private ranges plus
+  `VOXI_PROXY_EXTRA_HOSTS` entries — validated strictly (plain hostnames only) and
+  deduplicated before they reach the nginx `map` blocks, with a deterministic refusal on
+  anything that could break out of the map syntax. Every device on the enabled network
+  can then call the gateway **without a key**; this is stated in the startup warning, the
+  README (§3 Trusted-LAN injection), `.env.example` and `docs/deployment.md`, and asserted
+  by the new `smoke_proxy.py --mode lan-inject` (foreign Host still 421, public cross-site
+  origin still 403, private-range origin accepted, keyless LAN request served by the
+  injected identity, `runtime.json` reports the mode). `/ui/runtime.json` gains
+  `mode: "lan-inject"` and the WebUI Settings badge explains it (third runtime mode in
+  `runtimeStatus.ts` + tests). `nginx -t` verified over all three rendered modes;
+  template header comment no longer names substituted variables verbatim (multi-line
+  values previously leaked into the header comment when rendered).
+- Stack merge · **`infra/compose.lan-stack.example.yaml`** — reviewed example overlay for
+  running Apeksis inside an existing Compose stack: published-LAN proxy binding
+  (`!override`), central host model tree (`/opt/ai-models/voxi`) instead of named volumes,
+  and joining the consuming stack's network so peers reach `http://gateway:8080/v1` by
+  service DNS. Not part of the CI matrix (external network reference); `config --quiet`
+  validated with the base + proxy files. Documented in `docs/deployment.md` §"Merging
+  into an existing Compose stack" and `.env.example` (two new proxy envs).
+
 ## 0.3.0 — first public release (2026-10-17)
 
 Everything below ships in the initial publication. Earlier internal milestones were recorded

@@ -977,6 +977,59 @@ adımları (tarayıcı gerektirir): OpenCode GitHub App'inin reporuya bağlanmas
 Actions secret'ı. CI gerekçesi Node20→24 deprecation uyarıları kozmetik (açı, eylem sürümlerine
 ait); ellemeler kayda değer değil.
 
+### 8.5.13 Güvenilir-LAN enjeksiyonu + stack-merge overlayi (post-release, 2026-10-17)
+
+**Talep:** kullanıcı (Merged-AI-NEW yığını sahibi) LAN sunucusunda (ör. `10.0.0.231:8102`)
+keyless stüdyo erişimi istiyor; şablona statik IP eklemek + BIND kontrolünü esnetmek önerildi.
+**Karar:** statik ev IP'si asla publik repo default'una yazılmaz; bunun yerine iki açık
+opt-in env: `VOXI_ALLOW_LAN_INJECT=true` (inject + non-loopback combo'sunda başlama ret
+kalkar) + `VOXI_PROXY_EXTRA_HOSTS` (litereal hostlar). Guard'lar AÇIK kalır: Host/origin
+allowlist'ine RFC1918 regexleri + ek hostlar eklenir; foreign Host → 421, public cross-site
+→ 403 AYNEN. TLS zorunluluğu her modda kalır. `VOXI_PROXY_EXTRA_HOSTS` harf/rakam/nokta/tire
+whitelist'i + leading/trailing/çift-nokta ret + loopback-benzeri dedupe ile filtrelenir; bu
+girdiler nginx map bloklarına interpolate edilir → config-injection girişimi start'ı RETLandirir.
+
+**Uygulama:** `integrations/nginx/nginx.conf.template` — iki map'e envsubst slot'ları
+(`${VOXI_LAN_HOST_ALLOW}`, `${VOXI_LAN_ORIGIN_ALLOW}`; header comment'inde değişken adları
+artık birebir yazılmaz, çünkü her verbatim token değerle değiştirilir ve değerler çok
+satırlı → başka satıra config sızdı; KEŞİF: ilk render'da `unknown directive` hatası bununla
+oldu, mikro-testle ve shim envsubst wrapper ile debuglandı); `voxi-entrypoint.sh` — yeni mod
+`lan-inject`, `MODE_LABEL`, build fonksiyonu (POSIX `case`, busybox `tr -d`, `sed` escape),
+`runtime.json` `mode:"lan-inject"`, startup WARNING 4 madde; inert flag notu
+(inject=false iken flag anlamsız → bilgilendirir). `webui/src/lib/runtimeStatus.ts` — üçüncü
+mod `lan-inject` + describe metni; `webui/tests/runtimeStatus.test.ts` — 3 yeni case.
+`infra/compose.proxy.yaml` — iki env passthrough + ports comment güncel; `.env.example` —
+iki değişken dokümante; `scripts/smoke_proxy.py` — `--mode lan-inject` (foreign Host 421,
+public origin 403, private-range origin kabul, keyless 200 (risk açık assertion),
+runtime.json). `infra/compose.lan-stack.example.yaml` — YENİ örnek overlay (external
+network + !override model host-dir — bu dosya CI matrisinde YOK, config --quiet ile lokal
+doğrulanır). `docs/deployment.md` §"Merging into an existing Compose stack" + nginx README
+§3 Trusted-LAN injection bölümü (numarasız → değil, 3'e eklendi, 4/5 renumber).
+
+**Ölçüm:** busybox `sh -n` PARSE-OK; `nginx -t` ÜÇ mod (loopback / lan / lan-inject)
+successful; canlı doğrulama §8.5.14'te.
+
+### 8.5.14 Canlı doğrulama — trusted-LAN (2026-10-17, kurulan stack üzerinde)
+
+- `pytest` 161 passed / 4 skipped (ruff ilk turda `smoke_proxy.py` E501 → satır kısaltıldı,
+  sonra "All checks passed").
+- `webui` vitest **83 passed** (10 dosya); production build yeni bundle
+  `assets/index-HRjqFXOa.js` (476.694 B).
+- Compose `config --quiet`: 5 CI kombinasyonu + YENİ `lan-stack.example`
+  (base+proxy+example) = **6/6 exit 0**.
+- **Canlı tur (docker stack):**
+  1. `VOXI_ALLOW_LAN_INJECT=true VOXI_PROXY_BIND_IP=192.168.16.87`
+     `VOXI_PROXY_EXTRA_HOSTS=192.168.16.87` env'leri ile proxy `--force-recreate` →
+     `smoke_proxy.py --mode lan-inject` **PASS** (5 assertion, gerçek HTTP üzerinden).
+  2. Ortam değişkenleri shell'den düşürüldü (çalışma ağacı .env'e dokunulmadı), reproduce →
+     loopback `--mode loopback` smoke **PASS** (5 assertion — eski davranış birebir korundu).
+  3. webui image rebuild (`voxi-webui:local`) + `up -d --force-recreate --no-deps webui` +
+     `restart proxy` → `/ui/` 200 ve **yeni paket servis ediliyor** (`index-HRjqFXOa.js`,
+     200/476.694 B), `runtime.json` loopback modunu doğru bildiriyor.
+- Sıralama notu: bundle hash değiştiği için recreate sonrası proxy restart şart (AGENTS
+  kuralı — recreate proxy'i bozar, restart onarır).
+
+
 **Kalan (R4 dışı):** dört Python imajının yeniden derlenmesi (§8.5.6'daki erteleme sürüyor),
 R7 (gerçek repo URL'si + SECURITY.md/CODE_OF_CONDUCT.md), kullanıcının 8 maddelik görsel
 onay listesi.
