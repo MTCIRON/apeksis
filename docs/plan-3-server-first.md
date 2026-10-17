@@ -936,9 +936,18 @@ doldurmak, `v0.3.0` etiketini push etmek → **§8.5.12'de tamamlandı.**
 
 ### 8.5.12 Push — GitHub + opencode entegrasyonu (2026-10-17)
 
-**Repo oluşturma/push** (`gh` CLI, oturum `MTCIRON`): `github.com/MTCIRON/apeksis` (public,
-AGPL-3.0-or-later). `main` = 3 commit (release `b0cde55`… + CI iş akışı + README gerçek URL) ve
-etiket `v0.3.0` push edildi. README `git clone <repo>` placeholder'ı gerçek URL ile değişti.
+**Repo oluşturma/push** (`gh` CLI, oturum `MTCIRON`): repo **kullanıcı tarafından bugün zaten
+oluşturulmuş** (private, yalnız sihirbaz "Initial commit" + `LICENSE` içeriyordu) ve pencere
+kimliği `6ce0611`. Ölçümlenen tutarlılık: sihirbazın `LICENSE` dosyası **GNU GPL-3.0** (35.149 B =
+gnu.org gpl-3.0.txt) — **yanlış lisans**; bu deponun her yerde sabit AGPL-3.0-or-later'i (34.523 B
+= canonical agpl-3.0 metni) ile doğrudan çelişiyordu. Sihirbaz commit'i yalnız bu hatalı dosyayı
+taşıdığından `main` doğru récâe `--force` ile üzerine yazıldı (`6ce0611...7deea87`), `v0.3.0`
+etiketi ayrıca push edildi. Push sonrası uzak: 2 commit — `b0cde55` (release, etiketli) +
+`7deea87` (ci + README gerçek URL). README `git clone <repo>` placeholder'ı
+`github.com/MTCIRON/apeksis.git` ile değişti. Görünürlük **private kalır** Kamuya
+açma/tanıtımı kullanıcı kararı; ayrıca R7'de istenen görünürlük ayarı: reputation (deployed
+durum: AGPL §13 için kamu repo'su gerekir → kullanıcıya tek `gh repo edit … --visibility public`
+komutu bırakıldı.
 
 **opencode GitHub entegrasyonu** (`opencode github install`'un manuel yolu, resmî docs
 2026-10-17 doğrulamalı): `.github/workflows/opencode.yml` — `issue_comment` +
