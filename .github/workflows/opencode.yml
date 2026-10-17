@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# SPDX-FileCopyrightText: 2026 Mustafa Tayyar Çalışkan
+
+# OpenCode GitHub integration (https://opencode.ai/docs/github/).
+# Mention `/opencode` or `/oc` in an issue or PR (incl. line comments) and
+# OpenCode runs on the Actions runner: explains, fixes, opens branches/PRs.
+#
+# Requires:
+#   1. The OpenCode GitHub App installed on this repository
+#      (github.com/apps/opencode-agent) — it supplies the commit/PR identity.
+#   2. An `ANTHROPIC_API_KEY` Actions secret — plus any other key the chosen
+#      provider needs. Change `model:` to a provider/model you actually have
+#      a key for (examples: anthropic/claude-sonnet-4-5, openai/gpt-5-mini).
+name: opencode
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  opencode:
+    if: >-
+      contains(github.event.comment.body, '/oc') ||
+      contains(github.event.comment.body, '/opencode')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        with:
+          model: anthropic/claude-sonnet-4-5

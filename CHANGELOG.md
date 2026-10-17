@@ -19,7 +19,15 @@ under `0.1.0` / `0.2.0` while the repository was still private.
   `uv.lock` / re-exported OpenAPI contract all read `0.3.0`; the historic version in
   `docs/verification.md` records these release gates plus what was deliberately **not** measured
   (a true zero-image/zero-volume first Docker install — that would destroy the live model
-  volumes).
+  volumes). 
+
+- Integrations · **The OpenCode GitHub workflow ships in the repository.** `.github/workflows/`
+  now carries the official `opencode.yml` (mention `/opencode` or `/oc` in an issue, PR or PR
+  line-comment and OpenCode runs on the Actions runner, fixing/implementing in its own branch and
+  PRs). Per the upstream docs the workflow needs the OpenCode GitHub App installed on the repo
+  and an `ANTHROPIC_API_KEY` Actions secret; the model input is a one-line edit
+  (`anthropic/claude-sonnet-4-5` by default). No API key material is stored in the repo — the
+  workflow reads secrets at activation time only, and it does not trigger ordinary push/PR CI.
 
 - Records · the project owner reconfirmed (2026-10-17) that the owner/developer is **Mustafa
   Tayyar Çalışkan** and the author name recorded in the earlier application's upstream MIT

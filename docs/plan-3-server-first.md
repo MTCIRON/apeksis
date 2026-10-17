@@ -932,7 +932,26 @@ temiz makinede README sıfırdan izlenerek yapılır. `docs/verification.md`'e *
 first-public-release gates"** bölümü eklendi (ölçüm tabloları + ölçülmeyenler dürüst yazılı).
 
 **Kalan (tamamı kullanıcı):** GitHub repo oluşturup push, README `git clone <repo>` placeholder'ını
-doldurmak, `v0.3.0` etiketini push etmek.
+doldurmak, `v0.3.0` etiketini push etmek → **§8.5.12'de tamamlandı.**
+
+### 8.5.12 Push — GitHub + opencode entegrasyonu (2026-10-17)
+
+**Repo oluşturma/push** (`gh` CLI, oturum `MTCIRON`): `github.com/MTCIRON/apeksis` (public,
+AGPL-3.0-or-later). `main` = 3 commit (release `b0cde55`… + CI iş akışı + README gerçek URL) ve
+etiket `v0.3.0` push edildi. README `git clone <repo>` placeholder'ı gerçek URL ile değişti.
+
+**opencode GitHub entegrasyonu** (`opencode github install`'un manuel yolu, resmî docs
+2026-10-17 doğrulamalı): `.github/workflows/opencode.yml` — `issue_comment` +
+`pull_request_review_comment` üzerinden `/oc`/`/opencode` tetiklemesi; `id-token: write`,
+`persist-credentials: false`, `checkout@v6` + `anomalyco/opencode/github@latest`. Model
+`anthropic/claude-sonnet-4-5` (kullanıcı istediği provider/model ile değiştirir), API anahtarı
+yalnız Actions secret (`ANTHROPIC_API_KEY`) yoluyla — repoda hiçbir anahtar yoktur. Kullanıcı
+taraflı iki adım (tarayıcı makines dışı olduğundan ben yapamam): opencode-agent GitHub App'ini
+reporuya kurmak + Actions secret'ını girmek (kılavuzda).
+
+**Ölçüm/karar notları:** release commit'i etiketli durur; CI iş akışı ayrı commit'te olduğundan
+`v0.3.0` içeriği değişmedi. push sonrası Actions'taki ilk `checks` çalışması ayrıca izlendi —
+GitHub altyapısında bağımsız doğrulama.
 
 **Kalan (R4 dışı):** dört Python imajının yeniden derlenmesi (§8.5.6'daki erteleme sürüyor),
 R7 (gerçek repo URL'si + SECURITY.md/CODE_OF_CONDUCT.md), kullanıcının 8 maddelik görsel

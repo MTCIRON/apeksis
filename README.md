@@ -15,7 +15,7 @@ First executable milestone: independent OpenAI-compatible file speech APIs, isol
 and the TLS/UI edge included; no `.env` is required:
 
 ```sh
-git clone <repo> && cd <repo>
+git clone https://github.com/MTCIRON/apeksis.git && cd apeksis
 scripts/up.sh    # Linux/macOS convenience wrapper — or, directly:
 docker compose -f compose.yaml -f infra/compose.proxy.yaml up -d --wait --wait-timeout 900
 ```
