@@ -960,7 +960,22 @@ reporuya kurmak + Actions secret'ını girmek (kılavuzda).
 
 **Ölçüm/karar notları:** release commit'i etiketli durur; CI iş akışı ayrı commit'te olduğundan
 `v0.3.0` içeriği değişmedi. push sonrası Actions'taki ilk `checks` çalışması ayrıca izlendi —
-GitHub altyapısında bağımsız doğrulama.
+GitHub altyapatısında bağımsız doğrulama.
+
+**GitHub-üstü doğrulama (ÖLÇÜM, 2026-10-17):** push edilen ilk üç çalışma, özel repo Actions
+dk. faturası/sınır nedeniyle **başlamadan** düştü (hata: "account payments have failed or your
+spending limit…"); repo bu yüzden **public** yapıldı (`gh repo edit --visibility public`,
+AGPL §13 ile de uyumlu) ve reel yürütme sağlandı. `compose` ve `webui` işleri hemen yeşil
+çıktı; `checks` işi **runner'da `ffmpeg` olmadığı** için 25 testte düştü (`RFC ffprobe` değil,
+`RuntimeError: FFmpeg is required…`). Düzeltme: ci.yaml `checks` adımına `apt-get install
+ffmpeg` (tek satır, commit `0b2afdb`) → üç işin TAMAMI yeşil: **checks ✓ webui ✓ compose ✓**
+(run `39029436808`). `v0.3.0` etiketi, gönderilen ağacı gösterecek şekilde aynı commit'e
+yeniden işaretlendi; GitHub **Release** `v0.3.0` oluşturuldu
+(releases/tag/v0.3.0, dürüst kanıt paragrafıyla). Gizli zaafiyet raporlaması API üzerinden
+**açıldı** (`PUT repos/…/private-vulnerability-reporting` → enabled: true). Açık participant
+adımları (tarayıcı gerektirir): OpenCode GitHub App'inin reporuya bağlanması + `ANTHROPIC_API_KEY`
+Actions secret'ı. CI gerekçesi Node20→24 deprecation uyarıları kozmetik (açı, eylem sürümlerine
+ait); ellemeler kayda değer değil.
 
 **Kalan (R4 dışı):** dört Python imajının yeniden derlenmesi (§8.5.6'daki erteleme sürüyor),
 R7 (gerçek repo URL'si + SECURITY.md/CODE_OF_CONDUCT.md), kullanıcının 8 maddelik görsel

@@ -19,7 +19,16 @@ under `0.1.0` / `0.2.0` while the repository was still private.
   `uv.lock` / re-exported OpenAPI contract all read `0.3.0`; the historic version in
   `docs/verification.md` records these release gates plus what was deliberately **not** measured
   (a true zero-image/zero-volume first Docker install — that would destroy the live model
-  volumes). 
+  volumes).
+
+- Live CI on GitHub · **The exact same suites are now green on GitHub's own runners.** After the
+  public flip, `compose` and `webui` jobs passed immediately; the `checks` job exposed one real
+  difference — the ubuntu-24.04 runner ships no `ffmpeg` binary, so the codec unit tests failed
+  there while the same suite passed locally. One line fixed it (`apt-get install ffmpeg` in
+  `ci.yaml`), and all three jobs (`checks`, `webui`, `compose`) are green in run
+  `39029436808`. The `v0.3.0` tag points at the shipped tree and a GitHub **Release** was
+  published from it; the repository's OpenCode comment-integration workflow (`opencode.yml`) is
+  registered and active.
 
 - Integrations · **The OpenCode GitHub workflow ships in the repository.** `.github/workflows/`
   now carries the official `opencode.yml` (mention `/opencode` or `/oc` in an issue, PR or PR
