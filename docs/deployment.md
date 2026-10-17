@@ -98,22 +98,37 @@ disable local auto-identity (`VOXI_PROXY_INJECT=false`) and require per-client k
 ### Merging into an existing Compose stack
 
 Everything above composes with an environment where other services already run. The
-reviewed template overlay `infra/compose.lan-stack.example.yaml` carries the three
+reviewed template overlay `infra/compose.lan-stack.example.yaml` carries four
 capabilities: publishing the proxy on a LAN address in trusted-LAN injected mode, serving
-models from a central host tree at `/opt/ai-models/voxi` instead of named volumes, and
-joining the consuming stack's network so OpenWebUI-style peers reach
-`http://gateway:8080/v1` by service DNS. Load it LAST, load all three files always, and
-supply the expected env values in the consuming stack's `.env` (documented at the top of
-that file).
+models from a central host tree (`VOXI_MODELS_DIR`, default `/opt/ai-models/voxi/models`)
+instead of named volumes, joining the consuming stack's network so peers reach the
+gateway by a stable name, and fixed `container_name`s (`voxi-gateway`, `voxi-tts-ema`,
+`voxi-stt-whisper`, `voxi-webui`, `voxi-proxy`) so OpenWebUI/n8n use
+`http://voxi-gateway:8080/v1` regardless of the Compose project prefix. Load it LAST,
+load all three files always, and supply the expected env values in the consuming stack's
+`.env` (documented at the top of that file).
 
 ```sh
 docker compose -f compose.yaml -f infra/compose.proxy.yaml \
                -f infra/compose.lan-stack.example.yaml config --quiet
 ```
 
-The OpenWebUI audio integration envs live in `integrations/openwebui/audio.env.example`;
-`VOXI_CPU_THREADS` caps each CPU worker's thread pool on big-core servers (e.g. `8` on a
-48-core/96-thread machine is fine — per-worker, not per-process).
+`VOXI_MODELS_DIR` is shared by the WORKERS **and the four `provision-*` one-shot
+services** — the downloaders write the central tree, the readers mount it read-only, so
+both sides always see the same files. The model containers run as UID `10001`; prepare
+the host tree accordingly:
+
+```sh
+mkdir -p /opt/ai-models/voxi/models /opt/ai-models/voxi/certs
+chown -R 10001:10001 /opt/ai-models/voxi
+```
+
+`VOXI_PROXY_PORT` picks the published port (any free port; the example `.env` in the
+overlay header uses `8102` because 8443 is commonly taken by other gateways), and
+`VOXI_CPU_THREADS` caps each CPU worker's thread pool on big-core servers (`8`, or `16`
+— per worker, not per process). Certificates stay in the checkout's `./certs`; symlink
+your central cert directory there if your storage standard requires it. The OpenWebUI
+audio integration envs live in `integrations/openwebui/audio.env.example`.
 
 ## Build, install models, start
 

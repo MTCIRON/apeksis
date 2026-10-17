@@ -20,11 +20,18 @@
   values previously leaked into the header comment when rendered).
 - Stack merge · **`infra/compose.lan-stack.example.yaml`** — reviewed example overlay for
   running Apeksis inside an existing Compose stack: published-LAN proxy binding
-  (`!override`), central host model tree (`/opt/ai-models/voxi`) instead of named volumes,
-  and joining the consuming stack's network so peers reach `http://gateway:8080/v1` by
-  service DNS. Not part of the CI matrix (external network reference); `config --quiet`
-  validated with the base + proxy files. Documented in `docs/deployment.md` §"Merging
-  into an existing Compose stack" and `.env.example` (two new proxy envs).
+  (`!override`), a central host model tree (`VOXI_MODELS_DIR`, default
+  `/opt/ai-models/voxi/models`) mounted read-only by the workers **and written by the
+  four `provision-*` model downloaders** (same tree, so volume and downloader cannot
+  diverge — a reviewer-caught divergence), fixed `container_name`s
+  (`voxi-gateway`, `voxi-tts-ema`, `voxi-stt-whisper`, `voxi-webui`, `voxi-proxy`) so
+  external peers use `http://voxi-gateway:8080/v1` regardless of the Compose project
+  prefix, and joining the consuming stack's network. Not part of the CI matrix (external
+  network reference); `config --quiet` validated with defaults and with overridden envs
+  (`VOXI_MODELS_DIR`, `VOXI_JOIN_NETWORK`, `VOXI_PROXY_BIND_IP`, `VOXI_PROXY_PORT=8102`).
+  Documented in `docs/deployment.md` §"Merging into an existing Compose stack" (including
+  the UID `10001` host-preparation `mkdir`/`chown` step) and `.env.example` (two new
+  proxy envs).
 
 ## 0.3.0 — first public release (2026-10-17)
 

@@ -4,59 +4,95 @@
 # EXAMPLE overlay — merging Apeksis into an ALREADY-RUNNING Compose stack.
 # Checked in as a template, ON PURPOSE not part of the CI validation matrix
 # (it references an external network that exists only in the consuming stack).
+# As a published example it ships NO host-specific values: every site-specific
+# knob (model tree, LAN address, port, joined network) is a variable the
+# consuming stack's `.env` sets. Documented in docs/deployment.md §"Merging
+# into an existing Compose stack".
 #
-# It demonstrates three independent capabilities; take the blocks you need:
+# It demonstrates four independent capabilities; take the blocks you need:
 #   1. publishing the TLS proxy on a LAN address instead of loopback, in
 #      trusted-LAN injected mode (VOXI_ALLOW_LAN_INJECT=true);
-#   2. serving models from a central host directory (/opt/ai-models/voxi)
-#      instead of the Compose named volumes (all model mounts are read-only);
-#   3. joining an existing stack network so other containers (OpenWebUI, ...)
-#      reach the gateway by service DNS: http://gateway:8080/v1
+#   2. serving AND provisioning models in one central host directory instead
+#      of the Compose named volumes (workers read-only; provisioners write);
+#   3. joining an existing stack network so other containers (OpenWebUI, n8n,
+#      ...) reach the gateway by a stable DNS name;
+#   4. stable `container_name`s so peers can use http://voxi-gateway:8080/v1
+#      regardless of the Compose project prefix.
 #
 # Run order matters: this overlay LAST, after the base file and the proxy
 # overlay; the proxy position below REPLACES the base binding (!override):
 #   docker compose -f compose.yaml -f infra/compose.proxy.yaml \
-#                  -f infra/compose.lan-stack.example.yaml up -d --wait gateway tts-ema stt-whisper webui proxy
+#                  -f infra/compose.lan-stack.example.yaml up -d --wait \
+#                  gateway tts-ema stt-whisper webui proxy
 #
-# The consuming stack's .env supplies (documented in .env.example):
+# The consuming stack's `.env` supplies (documented in .env.example):
+#   VOXI_MODELS_DIR=/opt/ai-models/voxi/models   # central model tree
 #   VOXI_PROXY_BIND_IP=10.0.0.231        # this server's LAN address
-#   VOXI_PROXY_PORT=8102                 # published console port
+#   VOXI_PROXY_PORT=8102                 # free port (8443 is often taken)
 #   VOXI_ALLOW_LAN_INJECT=true           # explicit trusted-LAN opt-in
 #   VOXI_PROXY_EXTRA_HOSTS=10.0.0.231    # hosts the injector treats as same-site
-#   VOXI_CPU_THREADS=8
+#   VOXI_CPU_THREADS=8                   # or 16 on a big-core server (per worker)
 #   REQUIRE_PROVIDED_CERTS=1             # your own SAN certificate (integrations/nginx/README.md)
 #   VOXI_JOIN_NETWORK=app-network        # the consuming stack's network name
 #
-# Certificate note: when the one-shot `secrets` service generates the pair, the
-# SAN automatically includes VOXI_PROXY_BIND_IP. Provide your own pair when
-# REQUIRE_PROVIDED_CERTS=1. LAN TLS works best with an IP: SAN for the LAN
-# address, otherwise browsers show a name-mismatch warning.
+# Host preparation (the workers run as UID 10001 — rootless container user):
+#   mkdir -p /opt/ai-models/voxi/models /opt/ai-models/voxi/certs
+#   chown -R 10001:10001 /opt/ai-models/voxi
+# The provision-* one-shot services download the pinned models (SHA-256
+# verified) INTO that tree; a partial tree simply re-provisions on next `up`.
+#
+# Certificate note: with REQUIRE_PROVIDED_CERTS=1 bring your own SAN pair and
+# point the repo's ./certs at it (or symlink /opt/ai-models/voxi/certs there).
+# Without it, the one-shot `secrets` service generates a pair whose SAN
+# automatically includes VOXI_PROXY_BIND_IP. LAN TLS without an IP SAN shows a
+# browser name-mismatch warning; see integrations/nginx/README.md.
 
 services:
   proxy:
     ports: !override
       - "${VOXI_PROXY_BIND_IP:-127.0.0.1}:${VOXI_PROXY_PORT:-8443}:8443"
+    container_name: voxi-proxy
 
-  # Model mounts: override the named-volume mounts of the two CPU workers with
-  # one central host tree. The layout stays EXACTLY the provisioned one:
-  #   /opt/ai-models/voxi/models/ema-lightning  (32.8 MB, pinned SHA-256)
-  #   /opt/ai-models/voxi/models/whisper-small  (463.7 MB, pinned SHA-256)
-  tts-ema:
+  # ---- Provisioners write the central tree (no `:ro`), then exit. ----
+  # Without these overrides the provisioners would fill Docker named volumes
+  # while the workers (overridden below) read an empty host directory.
+  provision-ema:
     volumes: !override
-      - /opt/ai-models/voxi/models:/models:ro
+      - "${VOXI_MODELS_DIR:-/opt/ai-models/voxi/models}:/models"
+  provision-whisper:
+    volumes: !override
+      - "${VOXI_MODELS_DIR:-/opt/ai-models/voxi/models}:/models"
+  provision-whisper-turbo:
+    volumes: !override
+      - "${VOXI_MODELS_DIR:-/opt/ai-models/voxi/models}:/models"
+  provision-antalia:
+    volumes: !override
+      - "${VOXI_MODELS_DIR:-/opt/ai-models/voxi/models}:/models"
+
+  # ---- Workers read the same tree (read-only). ----
+  tts-ema:
+    container_name: voxi-tts-ema
+    volumes: !override
+      - "${VOXI_MODELS_DIR:-/opt/ai-models/voxi/models}:/models:ro"
       - secrets:/run/voxi-secrets:ro
   stt-whisper:
+    container_name: voxi-stt-whisper
     volumes: !override
-      - /opt/ai-models/voxi/models:/models:ro
+      - "${VOXI_MODELS_DIR:-/opt/ai-models/voxi/models}:/models:ro"
       - secrets:/run/voxi-secrets:ro
+  gateway:
+    container_name: voxi-gateway
+
   webui:
+    container_name: voxi-webui
     volumes: !override
-      # Served studio model packs + transcription ONNX runtime assets.
-      - /opt/ai-models/voxi/models:/usr/share/nginx/html/models:ro
+      # Served studio model packs + punctuation ONNX must live under the same
+      # central tree; layout check: integrations/webui/README.md.
+      - "${VOXI_MODELS_DIR:-/opt/ai-models/voxi/models}:/usr/share/nginx/html/models:ro"
 
 networks:
-  # Join the consuming stack's network: service DNS (`gateway`) works for any
-  # container already on it, without republishing the gateway port.
+  # Join the consuming stack's network: the fixed container names (above) and
+  # service DNS (`gateway`) both resolve for any container already on it.
   speech:
     name: ${VOXI_JOIN_NETWORK:-voxi_speech}
     external: true

@@ -1029,6 +1029,31 @@ successful; canlı doğrulama §8.5.14'te.
 - Sıralama notu: bundle hash değiştiği için recreate sonrası proxy restart şart (AGENTS
   kuralı — recreate proxy'i bozar, restart onarır).
 
+### 8.5.15 Stack-merge overlayi gözden geçirme turu (2026-10-17, harici gözden geçirmeci)
+
+Kullanıcı (yığındaki Merged-AI-NEW gözden geçirmecisi) `compose.lan-stack.example.yaml`'ı
+5 maddeyle inceledi; kabul edilenler:
+
+1. **Provisioner volume çelişkisi (GERÇEK bug)** — worker'lar merkezi host dizinine
+   yönlendirilmişti ama provision-* servisleri named volume'la kalmıştı: ilk indirme
+   Docker volume'una yazıp worker'ları boş dizinde çökertiyordu. Düzeltme: overlay'e
+   `provision-ema/whisper/whisper-turbo/antalia` için `volumes !override` → aynı
+   `${VOXI_MODELS_DIR}` ağacına (yazma izinli); docker compose config ile
+   varsayılan + özel env (custom `/central/tree`, port 8102, `app-network`) ikiye
+   ayrı ayrı `exit 0`.
+2. **Sabit container_name** — `voxi-gateway/voxi-tts-ema/voxi-stt-whisper/voxi-webui/`
+   `voxi-proxy` (proje önekinden bağımsız DNS; OpenWebUI `http://voxi-gateway:8080/v1`).
+3. **Port 8102** — zaten env ile (`VOXI_PROXY_PORT`); overlay örnek `.env` bloğu
+   güncellendi (8443 sık çakışır notu).
+4. **`VOXI_CPU_THREADS=8`** — zaten env ile; dokümanda tarafsız ifade ("dramatik" gibi
+   ölçümsüz iddia benimsenmedi).
+5. **UID 10001** — host hazırlığı (`mkdir -p … && chown -R 10001:10001 …`) deployment.md
+   merge bölümüne ve overlay başlığına yazıldı; certs dizini checkout `./certs`'ında kalır,
+   merkezi dizine symlink önerilir.
+
+Red edilenler: none net — hepsi makul.
+
+
 
 **Kalan (R4 dışı):** dört Python imajının yeniden derlenmesi (§8.5.6'daki erteleme sürüyor),
 R7 (gerçek repo URL'si + SECURITY.md/CODE_OF_CONDUCT.md), kullanıcının 8 maddelik görsel
